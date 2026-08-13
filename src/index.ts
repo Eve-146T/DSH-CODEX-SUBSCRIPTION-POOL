@@ -1,0 +1,442 @@
+/** Native OpenAI Codex OAuth login for DeepSeek Harness. */
+import { Context, Service } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
+import type { CommandInvocation } from '@deepseek-ai/dsh-commands'
+import { credentialRef } from '@deepseek-ai/dsh-credentials'
+import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import { createHash, randomBytes } from 'node:crypto'
+import { execFile } from 'node:child_process'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { readFile, unlink } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+
+const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
+const AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize'
+const TOKEN_URL = 'https://auth.openai.com/oauth/token'
+const REDIRECT_URI = 'http://localhost:1455/auth/callback'
+const DEFAULT_FILENAME = 'openai-codex-auth.json'
+const TOKEN_REF = credentialRef('DSH_OPENAI_CODEX_TOKEN')
+const CONTROL_PORT = 1456
+const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
+const USAGE_CACHE_MS = 30_000
+
+/** Persisted OAuth credential. */
+export interface OpenAICodexCredential {
+  access: string
+  refresh: string
+  expires: number
+  accountId: string
+}
+
+/** Plugin configuration. */
+export interface Config { path?: string; dshHome?: string }
+
+interface Document { version: 1; credential: OpenAICodexCredential }
+
+interface UsageWindow {
+  usedPercent: number
+  windowSeconds?: number
+  resetAt?: number
+}
+
+interface UsageSummary {
+  planType?: string
+  primary?: UsageWindow
+  secondary?: UsageWindow
+  limitReached?: boolean
+  resetCredits?: number
+  fetchedAt: number
+}
+
+interface LoginFlow {
+  url: string
+  completion: Promise<void>
+  abort: AbortController
+}
+
+function base64Url(value: Buffer): string {
+  return value.toString('base64url')
+}
+
+function accountId(access: string): string {
+  const parts = access.split('.')
+  if (parts.length !== 3) throw new Error('OpenAI returned an invalid access token')
+  const payload = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString('utf8')) as {
+    'https://api.openai.com/auth'?: { chatgpt_account_id?: unknown }
+  }
+  const id = payload['https://api.openai.com/auth']?.chatgpt_account_id
+  if (typeof id !== 'string' || id.length === 0) throw new Error('OpenAI token has no ChatGPT account id')
+  return id
+}
+
+function parseCredential(text: string, filename: string): OpenAICodexCredential {
+  const value = JSON.parse(text) as Partial<Document>
+  const credential = value.credential
+  if (value.version !== 1 || credential === undefined
+    || typeof credential.access !== 'string' || typeof credential.refresh !== 'string'
+    || typeof credential.expires !== 'number' || typeof credential.accountId !== 'string') {
+    throw new Error(`openai-codex-auth: invalid credential document ${filename}`)
+  }
+  return credential
+}
+
+async function readCredential(filename: string): Promise<OpenAICodexCredential | undefined> {
+  try {
+    return parseCredential(await readFile(filename, 'utf8'), filename)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
+async function tokenRequest(body: URLSearchParams, signal?: AbortSignal): Promise<OpenAICodexCredential> {
+  const response = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body,
+    ...signal === undefined ? {} : { signal },
+  })
+  if (!response.ok) throw new Error(`OpenAI token request failed (HTTP ${response.status}): ${await response.text()}`)
+  const value = await response.json() as { access_token?: unknown; refresh_token?: unknown; expires_in?: unknown }
+  if (typeof value.access_token !== 'string' || typeof value.refresh_token !== 'string'
+    || typeof value.expires_in !== 'number') throw new Error('OpenAI token response is incomplete')
+  return {
+    access: value.access_token,
+    refresh: value.refresh_token,
+    expires: Date.now() + value.expires_in * 1000,
+    accountId: accountId(value.access_token),
+  }
+}
+
+function openBrowser(url: string): void {
+  const command = process.platform === 'win32' ? 'rundll32.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open'
+  const args = process.platform === 'win32' ? ['url.dll,FileProtocolHandler', url] : [url]
+  const child = execFile(command, args, { windowsHide: true }, () => {})
+  child.unref()
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function usageWindow(value: unknown): UsageWindow | undefined {
+  if (value === null || typeof value !== 'object') return undefined
+  const row = value as Record<string, unknown>
+  const usedPercent = optionalNumber(row.used_percent ?? row.usedPercent)
+  if (usedPercent === undefined) return undefined
+  const windowSeconds = optionalNumber(row.limit_window_seconds ?? row.windowDurationSecs)
+  const resetAt = optionalNumber(row.reset_at ?? row.resetsAt)
+  return {
+    usedPercent: Math.max(0, Math.min(100, usedPercent)),
+    ...windowSeconds === undefined ? {} : { windowSeconds },
+    ...resetAt === undefined ? {} : { resetAt },
+  }
+}
+
+/** Reduce the OpenAI response to the stable fields displayed by the Web card. */
+export function normalizeUsage(value: unknown): UsageSummary {
+  const root = value !== null && typeof value === 'object' ? value as Record<string, unknown> : {}
+  const limits = root.rate_limit !== null && typeof root.rate_limit === 'object'
+    ? root.rate_limit as Record<string, unknown>
+    : root.rateLimits !== null && typeof root.rateLimits === 'object'
+      ? root.rateLimits as Record<string, unknown>
+      : {}
+  const credits = root.rate_limit_reset_credits !== null && typeof root.rate_limit_reset_credits === 'object'
+    ? root.rate_limit_reset_credits as Record<string, unknown>
+    : undefined
+  const planType = typeof root.plan_type === 'string'
+    ? root.plan_type
+    : typeof root.planType === 'string' ? root.planType : undefined
+  const primary = usageWindow(limits.primary_window ?? limits.primary)
+  const secondary = usageWindow(limits.secondary_window ?? limits.secondary)
+  const limitReached = typeof limits.limit_reached === 'boolean'
+    ? limits.limit_reached
+    : typeof limits.limitReached === 'boolean' ? limits.limitReached : undefined
+  const resetCredits = optionalNumber(credits?.available_count ?? credits?.availableCount)
+  return {
+    ...planType === undefined ? {} : { planType },
+    ...primary === undefined ? {} : { primary },
+    ...secondary === undefined ? {} : { secondary },
+    ...limitReached === undefined ? {} : { limitReached },
+    ...resetCredits === undefined ? {} : { resetCredits },
+    fetchedAt: Date.now(),
+  }
+}
+
+function isLocalOrigin(origin: string | undefined): origin is string {
+  if (origin === undefined) return false
+  try {
+    const hostname = new URL(origin).hostname
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+  } catch { return false }
+}
+
+declare module '@deepseek-ai/cordis' { interface Context { openaiCodexAuth: OpenAICodexAuth } }
+
+/** DSH service providing login, logout, and automatically refreshed bearer tokens. */
+export class OpenAICodexAuth extends Service {
+  static Config: z<Config> = z.object({ path: z.string(), dshHome: z.string() })
+  static inject = ['commands', 'credentials']
+  private readonly filename: string
+  private readonly csrf = base64Url(randomBytes(24))
+  private usageCache: UsageSummary | undefined
+  private usageError: string | undefined
+  private loginFlow: LoginFlow | undefined
+  private lastLoginError: string | undefined
+
+  constructor(ctx: Context, config: Config) {
+    super(ctx, 'openaiCodexAuth')
+    this.filename = resolve(config.path ?? join(resolveDshHome(config.dshHome), DEFAULT_FILENAME))
+    ctx.effect(() => ctx.commands.register({
+      name: 'login-openai', description: 'Sign in with ChatGPT Plus/Pro',
+      handler: (invocation: CommandInvocation) => this.loginCommand(invocation),
+    }))
+    ctx.effect(async () => {
+      const token = await this.bearerToken()
+      if (token !== undefined) await ctx.credentials.set(TOKEN_REF, token)
+      return () => {}
+    })
+    ctx.effect(() => {
+      const timer = setInterval(() => { void this.bearerToken().catch(() => {}) }, 60_000)
+      return () => { clearInterval(timer) }
+    })
+    ctx.effect(() => this.startControlServer())
+    ctx.effect(() => ctx.commands.register({
+      name: 'logout-openai', description: 'Remove the saved OpenAI login',
+      handler: (invocation: CommandInvocation) => this.logoutCommand(invocation),
+    }))
+  }
+
+  /** Return a valid bearer token, refreshing and persisting it when near expiry. */
+  async bearerToken(signal?: AbortSignal): Promise<string | undefined> {
+    return withFileLock(this.filename, async () => {
+      const current = await readCredential(this.filename)
+      if (current === undefined) return undefined
+      if (current.expires > Date.now() + 60_000) return current.access
+      const next = await tokenRequest(new URLSearchParams({
+        grant_type: 'refresh_token', refresh_token: current.refresh, client_id: CLIENT_ID,
+      }), signal)
+      await this.write(next)
+      await this.ctx.credentials.set(TOKEN_REF, next.access)
+      return next.access
+    })
+  }
+
+  private async loginCommand(invocation: CommandInvocation) {
+    if (invocation.rawInput.trim()) return { kind: 'error' as const, text: 'Usage: /login-openai' }
+    const { url, code, verifier } = this.createLoginRequest(invocation.signal)
+    openBrowser(url)
+    const authorizationCode = await code
+    await this.finishLogin(authorizationCode, verifier, invocation.signal)
+    return { kind: 'success' as const, text: 'Signed in to OpenAI (ChatGPT Plus/Pro).' }
+  }
+
+  private createLoginRequest(signal: AbortSignal): { url: string; code: Promise<string>; verifier: string } {
+    const verifier = base64Url(randomBytes(32))
+    const challenge = base64Url(createHash('sha256').update(verifier).digest())
+    const state = randomBytes(16).toString('hex')
+    const url = new URL(AUTHORIZE_URL)
+    for (const [key, value] of Object.entries({
+      response_type: 'code', client_id: CLIENT_ID, redirect_uri: REDIRECT_URI,
+      scope: 'openid profile email offline_access', code_challenge: challenge,
+      code_challenge_method: 'S256', state, id_token_add_organizations: 'true',
+      codex_cli_simplified_flow: 'true', originator: 'deepseek-harness',
+    })) url.searchParams.set(key, value)
+    return { url: url.toString(), code: this.waitForCallback(state, signal), verifier }
+  }
+
+  private async finishLogin(authorizationCode: string, verifier: string, signal?: AbortSignal): Promise<void> {
+    const credential = await tokenRequest(new URLSearchParams({
+      grant_type: 'authorization_code', client_id: CLIENT_ID, code: authorizationCode,
+      code_verifier: verifier, redirect_uri: REDIRECT_URI,
+    }), signal)
+    await withFileLock(this.filename, () => this.write(credential))
+    await this.ctx.credentials.set(TOKEN_REF, credential.access)
+    this.usageCache = undefined
+    this.usageError = undefined
+  }
+
+
+  private async logoutCommand(invocation: CommandInvocation) {
+    if (invocation.rawInput.trim()) return { kind: 'error' as const, text: 'Usage: /logout-openai' }
+    await withFileLock(this.filename, async () => {
+      try { await unlink(this.filename) } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
+    })
+    await this.ctx.credentials.unset(TOKEN_REF)
+    this.usageCache = undefined
+    this.usageError = undefined
+    return { kind: 'success' as const, text: 'Signed out of OpenAI.' }
+  }
+
+  private async logout(): Promise<void> {
+    await withFileLock(this.filename, async () => {
+      try { await unlink(this.filename) } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
+    })
+    await this.ctx.credentials.unset(TOKEN_REF)
+    this.usageCache = undefined
+    this.usageError = undefined
+  }
+
+  private beginBrowserLogin(): LoginFlow {
+    if (this.loginFlow !== undefined) return this.loginFlow
+    const abort = new AbortController()
+    const { url, code, verifier } = this.createLoginRequest(abort.signal)
+    this.lastLoginError = undefined
+    const completion = code
+      .then(authorizationCode => this.finishLogin(authorizationCode, verifier, abort.signal))
+      .catch((error: unknown) => { this.lastLoginError = error instanceof Error ? error.message : String(error) })
+      .finally(() => { this.loginFlow = undefined })
+    const flow = { url, completion, abort }
+    this.loginFlow = flow
+    return flow
+  }
+
+  private async status(refresh: boolean): Promise<Record<string, unknown>> {
+    let credential = await readCredential(this.filename)
+    if (credential === undefined) {
+      return { loggedIn: false, loginPending: this.loginFlow !== undefined, loginError: this.lastLoginError, csrf: this.csrf }
+    }
+    try {
+      await this.bearerToken()
+      credential = await readCredential(this.filename) ?? credential
+    } catch (error) {
+      this.usageError = error instanceof Error ? error.message : String(error)
+    }
+    if (refresh || this.usageCache === undefined || Date.now() - this.usageCache.fetchedAt > USAGE_CACHE_MS) {
+      try {
+        this.usageCache = await this.fetchUsage(credential)
+        this.usageError = undefined
+      } catch (error) {
+        this.usageError = error instanceof Error ? error.message : String(error)
+      }
+    }
+    return {
+      loggedIn: true,
+      loginPending: this.loginFlow !== undefined,
+      accountId: credential.accountId,
+      expiresAt: credential.expires,
+      usage: this.usageCache,
+      usageError: this.usageError,
+      csrf: this.csrf,
+    }
+  }
+
+  private async fetchUsage(credential: OpenAICodexCredential): Promise<UsageSummary> {
+    const access = await this.bearerToken()
+    if (access === undefined) throw new Error('OpenAI login is missing')
+    const response = await fetch(USAGE_URL, {
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${access}`,
+        'chatgpt-account-id': credential.accountId,
+        'user-agent': 'dsh-openai-codex-auth/0.2',
+      },
+    })
+    if (!response.ok) throw new Error(`Codex usage request failed (HTTP ${response.status})`)
+    return normalizeUsage(await response.json())
+  }
+
+  private startControlServer(): Promise<() => void> {
+    return new Promise((resolveStart, rejectStart) => {
+      const server = createServer((request, response) => { void this.controlRequest(request, response) })
+      server.once('error', rejectStart)
+      server.listen(CONTROL_PORT, '127.0.0.1', () => {
+        server.removeListener('error', rejectStart)
+        resolveStart(() => {
+          this.loginFlow?.abort.abort()
+          server.close()
+        })
+      })
+    })
+  }
+
+  private async controlRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const origin = request.headers.origin
+    const localOrigin = isLocalOrigin(origin)
+    const headers: Record<string, string> = {
+      'cache-control': 'no-store',
+      'content-type': 'application/json; charset=utf-8',
+      vary: 'Origin',
+      ...localOrigin ? { 'access-control-allow-origin': origin } : {},
+    }
+    const send = (status: number, value: unknown): void => {
+      response.writeHead(status, headers).end(JSON.stringify(value))
+    }
+    try {
+      const url = new URL(request.url ?? '/', `http://127.0.0.1:${CONTROL_PORT}`)
+      if (request.method === 'OPTIONS' && localOrigin) {
+        response.writeHead(204, {
+          ...headers,
+          'access-control-allow-methods': 'GET, POST, OPTIONS',
+          'access-control-allow-headers': 'content-type, x-dsh-csrf',
+        }).end()
+        return
+      }
+      if (url.pathname === '/start' && request.method === 'GET') {
+        const flow = this.beginBrowserLogin()
+        response.writeHead(302, { location: flow.url, 'cache-control': 'no-store' }).end()
+        return
+      }
+      if (!localOrigin) { send(403, { error: 'This endpoint only accepts a local DSH Web origin.' }); return }
+      if (url.pathname === '/status' && request.method === 'GET') {
+        send(200, await this.status(url.searchParams.get('refresh') === '1'))
+        return
+      }
+      if (url.pathname === '/logout' && request.method === 'POST') {
+        if (request.headers['x-dsh-csrf'] !== this.csrf) { send(403, { error: 'Invalid CSRF token.' }); return }
+        await this.logout()
+        send(200, { ok: true })
+        return
+      }
+      send(404, { error: 'Not found' })
+    } catch (error) {
+      send(500, { error: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  private write(credential: OpenAICodexCredential): Promise<void> {
+    return writeFileAtomic(this.filename, `${JSON.stringify({ version: 1, credential }, null, 2)}\n`, {
+      mode: 0o600, dirMode: 0o700,
+    })
+  }
+
+  private waitForCallback(state: string, signal: AbortSignal): Promise<string> {
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const server = createServer((request, response) => {
+        const url = new URL(request.url ?? '', REDIRECT_URI)
+        if (url.pathname !== '/auth/callback' || url.searchParams.get('state') !== state) {
+          response.writeHead(400).end('Invalid OpenAI OAuth callback.')
+          return
+        }
+        const code = url.searchParams.get('code')
+        if (code === null) { response.writeHead(400).end('Missing authorization code.'); return }
+        response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end('OpenAI login complete. You may close this window.')
+        settled = true
+        signal.removeEventListener('abort', abort)
+        server.close()
+        resolve(code)
+      })
+      const abort = (): void => {
+        if (settled) return
+        settled = true
+        server.close()
+        reject(new Error('OpenAI login cancelled'))
+      }
+      signal.addEventListener('abort', abort, { once: true })
+      server.listen(1455, '127.0.0.1').on('error', (error) => {
+        if (settled) return
+        settled = true
+        signal.removeEventListener('abort', abort)
+        reject(error)
+      })
+    })
+  }
+}
+
+export default OpenAICodexAuth

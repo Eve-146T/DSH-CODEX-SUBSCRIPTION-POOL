@@ -1,0 +1,9 @@
+- id: llm-pi-ai
+  config:
+    providers:
+      openai-codex:
+        apiKeyEnv: DSH_OPENAI_CODEX_TOKEN
+
+- insert:
+    - id: openai-codex-auth
+      name: dsh-openai-codex-auth
