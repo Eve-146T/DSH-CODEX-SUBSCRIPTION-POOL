@@ -46,10 +46,8 @@ export declare class OpenAICodexAuth extends Service {
     constructor(ctx: Context, config: Config);
     /** Return a valid bearer token, refreshing and persisting it when near expiry. */
     bearerToken(signal?: AbortSignal): Promise<string | undefined>;
-    private loginCommand;
     private createLoginRequest;
     private finishLogin;
-    private logoutCommand;
     private logout;
     private beginBrowserLogin;
     private status;

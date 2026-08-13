@@ -1,12 +1,10 @@
 /** Native OpenAI Codex OAuth login for DeepSeek Harness. */
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type { CommandInvocation } from '@deepseek-ai/dsh-commands'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { createHash, randomBytes } from 'node:crypto'
-import { execFile } from 'node:child_process'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { readFile, unlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -109,13 +107,6 @@ async function tokenRequest(body: URLSearchParams, signal?: AbortSignal): Promis
   }
 }
 
-function openBrowser(url: string): void {
-  const command = process.platform === 'win32' ? 'rundll32.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open'
-  const args = process.platform === 'win32' ? ['url.dll,FileProtocolHandler', url] : [url]
-  const child = execFile(command, args, { windowsHide: true }, () => {})
-  child.unref()
-}
-
 function optionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
@@ -177,7 +168,7 @@ declare module '@deepseek-ai/cordis' { interface Context { openaiCodexAuth: Open
 /** DSH service providing login, logout, and automatically refreshed bearer tokens. */
 export class OpenAICodexAuth extends Service {
   static Config: z<Config> = z.object({ path: z.string(), dshHome: z.string() })
-  static inject = ['commands', 'credentials']
+  static inject = ['credentials']
   private readonly filename: string
   private readonly csrf = base64Url(randomBytes(24))
   private usageCache: UsageSummary | undefined
@@ -188,10 +179,6 @@ export class OpenAICodexAuth extends Service {
   constructor(ctx: Context, config: Config) {
     super(ctx, 'openaiCodexAuth')
     this.filename = resolve(config.path ?? join(resolveDshHome(config.dshHome), DEFAULT_FILENAME))
-    ctx.effect(() => ctx.commands.register({
-      name: 'login-openai', description: 'Sign in with ChatGPT Plus/Pro',
-      handler: (invocation: CommandInvocation) => this.loginCommand(invocation),
-    }))
     ctx.effect(async () => {
       const token = await this.bearerToken()
       if (token !== undefined) await ctx.credentials.set(TOKEN_REF, token)
@@ -202,10 +189,6 @@ export class OpenAICodexAuth extends Service {
       return () => { clearInterval(timer) }
     })
     ctx.effect(() => this.startControlServer())
-    ctx.effect(() => ctx.commands.register({
-      name: 'logout-openai', description: 'Remove the saved OpenAI login',
-      handler: (invocation: CommandInvocation) => this.logoutCommand(invocation),
-    }))
   }
 
   /** Return a valid bearer token, refreshing and persisting it when near expiry. */
@@ -221,15 +204,6 @@ export class OpenAICodexAuth extends Service {
       await this.ctx.credentials.set(TOKEN_REF, next.access)
       return next.access
     })
-  }
-
-  private async loginCommand(invocation: CommandInvocation) {
-    if (invocation.rawInput.trim()) return { kind: 'error' as const, text: 'Usage: /login-openai' }
-    const { url, code, verifier } = this.createLoginRequest(invocation.signal)
-    openBrowser(url)
-    const authorizationCode = await code
-    await this.finishLogin(authorizationCode, verifier, invocation.signal)
-    return { kind: 'success' as const, text: 'Signed in to OpenAI (ChatGPT Plus/Pro).' }
   }
 
   private createLoginRequest(signal: AbortSignal): { url: string; code: Promise<string>; verifier: string } {
@@ -257,19 +231,6 @@ export class OpenAICodexAuth extends Service {
     this.usageError = undefined
   }
 
-
-  private async logoutCommand(invocation: CommandInvocation) {
-    if (invocation.rawInput.trim()) return { kind: 'error' as const, text: 'Usage: /logout-openai' }
-    await withFileLock(this.filename, async () => {
-      try { await unlink(this.filename) } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      }
-    })
-    await this.ctx.credentials.unset(TOKEN_REF)
-    this.usageCache = undefined
-    this.usageError = undefined
-    return { kind: 'success' as const, text: 'Signed out of OpenAI.' }
-  }
 
   private async logout(): Promise<void> {
     await withFileLock(this.filename, async () => {

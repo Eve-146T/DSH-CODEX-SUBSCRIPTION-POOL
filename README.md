@@ -8,7 +8,6 @@
 - 在“设置 → OpenAI Codex”中管理登录状态
 - 展示 Codex 短周期和周用量、剩余额度及重置时间
 - 自动刷新 OAuth token，并将有效凭据提供给 `openai-codex` 模型提供方
-- 提供 `/login-openai` 和 `/logout-openai` 命令
 
 ## 安装
 
@@ -30,13 +29,6 @@ dsh --profile web
 2. 进入“设置 → OpenAI Codex”。
 3. 点击“登录 OpenAI”，在浏览器中完成授权。
 4. 在“设置 → 模型提供方”中选择 `openai-codex`。
-
-也可以在对话中使用命令：
-
-```text
-/login-openai
-/logout-openai
-```
 
 ## 配置
 
