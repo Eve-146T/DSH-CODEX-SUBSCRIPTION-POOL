@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>把 ChatGPT 订阅安全地接入 DeepSeek Harness。</strong><br>
+  <strong>把 ChatGPT 订阅登录接入 DeepSeek Harness。</strong><br>
   在 DSH 设置页完成 OpenAI OAuth 登录、查看 Codex 用量，并自动向 <code>openai-codex</code> 模型提供方提供有效凭据。
 </p>
 
@@ -12,7 +12,7 @@
   <a href="#功能一览">功能一览</a> ·
   <a href="#工作方式">工作方式</a> ·
   <a href="#配置">配置</a> ·
-  <a href="#安全边界">安全边界</a>
+  <a href="#凭据处理边界">凭据处理边界</a>
 </p>
 
 ## 快速开始
@@ -79,7 +79,9 @@ $DSH_HOME/openai-codex-auth.json
 
 `path` 的优先级高于 `dshHome`。
 
-## 安全边界
+## 凭据处理边界
+
+以下内容仅说明插件如何处理本地凭据与管理接口，不代表或承诺任何 OpenAI 账号风控结果。
 
 - OAuth 授权使用 PKCE，并通过随机 `state` 防止回调串用。
 - 凭据目录与文件分别以 owner-only 权限创建，并通过原子写入更新。
