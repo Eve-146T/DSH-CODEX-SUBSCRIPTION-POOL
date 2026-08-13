@@ -129,6 +129,7 @@ window.__ModuleLoader__.load({
       }
 
       const usage = status && status.usage
+      const loading = status === null && !error
       const connected = Boolean(status && status.loggedIn)
       const pending = Boolean(status && status.loginPending) || watchLogin
       const plan = usage && usage.planType ? String(usage.planType).toUpperCase() : 'ChatGPT 订阅'
@@ -149,11 +150,11 @@ window.__ModuleLoader__.load({
               h('div', { className: 'codexLogo', 'aria-hidden': true }, 'OA'),
               h('div', null,
                 h('h3', { className: 'codexName' }, 'OpenAI Codex 订阅'),
-                h('p', { className: 'codexMeta', title: connected ? status.accountId : '' }, connected ? shortAccount(status.accountId) : '尚未连接 ChatGPT 账号'),
+                h('p', { className: 'codexMeta', title: connected ? status.accountId : '' }, loading ? '正在读取 OpenAI 登录状态' : connected ? shortAccount(status.accountId) : '尚未连接 ChatGPT 账号'),
               ),
             ),
-            h('span', { className: 'codexBadge ' + (connected ? 'connected' : pending ? 'pending' : '') },
-              h('span', { className: 'codexDot', 'aria-hidden': true }), connected ? '已连接' : pending ? '等待登录' : '未登录',
+            h('span', { className: 'codexBadge ' + (connected ? 'connected' : loading || pending ? 'pending' : '') },
+              h('span', { className: 'codexDot', 'aria-hidden': true }), loading ? '刷新中…' : connected ? '已连接' : pending ? '等待登录' : '未登录',
             ),
           ),
           h('div', { className: 'codexBody' },
@@ -172,7 +173,7 @@ window.__ModuleLoader__.load({
             status && status.loginError ? h('p', { className: 'codexError', role: 'alert' }, '登录失败：' + status.loginError) : null,
             error ? h('p', { className: 'codexError', role: 'alert' }, error) : null,
             h('div', { className: 'codexActions' },
-              h('button', { type: 'button', className: 'codexButton primary', disabled: busy || pending, onClick: login }, connected ? '重新登录' : pending ? '等待授权…' : '登录 OpenAI'),
+              h('button', { type: 'button', className: 'codexButton primary', disabled: busy || pending || loading, onClick: login }, loading ? '读取状态…' : connected ? '重新登录' : pending ? '等待授权…' : '登录 OpenAI'),
               connected ? h('button', { type: 'button', className: 'codexButton', disabled: busy, onClick: refresh }, busy ? '刷新中…' : '刷新用量') : null,
               connected ? h('button', { type: 'button', className: 'codexButton danger', disabled: busy, onClick: () => { void logout() } }, '退出登录') : null,
             ),
