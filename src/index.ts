@@ -4,7 +4,6 @@ import z from '@deepseek-ai/schemastery'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
-import axios from 'axios'
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { readFile, unlink } from 'node:fs/promises'
@@ -90,18 +89,17 @@ async function readCredential(filename: string): Promise<OpenAICodexCredential |
 }
 
 async function tokenRequest(body: URLSearchParams, signal?: AbortSignal): Promise<OpenAICodexCredential> {
-  const response = await axios.post<unknown>(TOKEN_URL, body, {
+  const response = await fetch(TOKEN_URL, {
+    method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body,
     ...signal === undefined ? {} : { signal },
-    validateStatus: () => true,
   })
-  if (response.status < 200 || response.status >= 300) {
-    const detail = typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
-    throw new Error(`OpenAI token request failed (HTTP ${response.status}): ${detail}`)
+  if (!response.ok) {
+    throw new Error(`OpenAI token request failed (HTTP ${response.status}): ${await response.text()}`)
   }
-  const value = response.data as { access_token?: unknown; refresh_token?: unknown; expires_in?: unknown }
-  if (value === null || typeof value !== 'object'
-    || typeof value.access_token !== 'string' || typeof value.refresh_token !== 'string'
+  const value = await response.json() as { access_token?: unknown; refresh_token?: unknown; expires_in?: unknown } | null
+  if (value === null || typeof value.access_token !== 'string' || typeof value.refresh_token !== 'string'
     || typeof value.expires_in !== 'number') throw new Error('OpenAI token response is incomplete')
   return {
     access: value.access_token,
@@ -294,19 +292,16 @@ export class OpenAICodexAuth extends Service {
   private async fetchUsage(credential: OpenAICodexCredential): Promise<UsageSummary> {
     const access = await this.bearerToken()
     if (access === undefined) throw new Error('OpenAI login is missing')
-    const response = await axios.get<unknown>(USAGE_URL, {
+    const response = await fetch(USAGE_URL, {
       headers: {
         accept: 'application/json',
         authorization: `Bearer ${access}`,
         'chatgpt-account-id': credential.accountId,
         'user-agent': 'dsh-openai-codex-auth/0.2',
       },
-      validateStatus: () => true,
     })
-    if (response.status < 200 || response.status >= 300) {
-      throw new Error(`Codex usage request failed (HTTP ${response.status})`)
-    }
-    return normalizeUsage(response.data)
+    if (!response.ok) throw new Error(`Codex usage request failed (HTTP ${response.status})`)
+    return normalizeUsage(await response.json())
   }
 
   private startControlServer(): Promise<() => void> {
