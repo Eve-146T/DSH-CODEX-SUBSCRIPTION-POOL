@@ -6,7 +6,7 @@ window.__ModuleLoader__.load({
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
 
     const React = require('react')
-    const { createElement: h, useCallback, useEffect, useMemo, useState } = React
+    const { createElement: h, useCallback, useEffect, useMemo, useRef, useState } = React
     const { Button, IconRefreshOutline16 } = require('@deepseek-ai/dsh-client-ui-primitives')
     const BASE = 'http://127.0.0.1:1456'
     const PLUGIN_ID = 'dsh-openai-codex-auth'
@@ -28,8 +28,9 @@ window.__ModuleLoader__.load({
       .codexLimitText{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}.codexLimitName{font-size:14px;font-weight:400;line-height:22px}.codexLimitReset{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexLimitValue{flex:none;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.codexLimitValue.high{color:var(--dsw-alias-state-warn-label)}
       .codexCredit{margin:12px 0 0;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
       .codexError{margin:12px 0 0;color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
-      .codexEmpty{margin:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}.codexSignIn{margin-top:14px;align-self:flex-start}.codexSkeleton{height:8px;margin:12px 0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}
-      @keyframes codexPulse{to{opacity:.4}}@keyframes codexSpin{to{transform:rotate(360deg)}}@media(max-width:620px){.codexAccount{align-items:flex-start;flex-wrap:wrap}.codexAccountAction{margin-left:46px}.codexUpdated{display:none}}
+      .codexEmpty{margin:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}.codexSignInActions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;align-self:flex-start}.codexDeviceButton{border-color:var(--dsw-alias-border-l2)!important}.codexDevice{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexDeviceText{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}.codexDeviceLabel{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexDeviceCode{font:600 18px/24px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em}.codexDeviceLink{color:var(--dsw-alias-state-business-primary);font-size:13px;text-decoration:none}.codexDeviceLink:hover{text-decoration:underline}.codexSkeleton{height:8px;margin:12px 0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}
+      .codexImageTool{width:min(100%,680px);overflow:hidden;margin:10px 0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}.codexImageHeader{display:flex;align-items:center;gap:10px;padding:12px 14px}.codexImageMark{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:7px;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary);font-size:16px}.codexImageHeading{display:flex;min-width:0;flex:1;flex-direction:column}.codexImageHeading strong{font-size:13px;line-height:18px}.codexImageHeading span{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:17px}.codexImageInspect{appearance:none;padding:4px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer}.codexImagePrompt{margin:0;padding:0 14px 12px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.codexImagePreviewLink{display:block;line-height:0}.codexImagePreview{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-module-platform)}.codexImageLoading{height:180px;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}.codexImageError{margin:0;padding:10px 14px;border-top:1px solid var(--dsw-alias-state-error-secondary);color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}
+      @keyframes codexPulse{to{opacity:.4}}@keyframes codexSpin{to{transform:rotate(360deg)}}@media(max-width:620px){.codexAccount{align-items:flex-start;flex-wrap:wrap}.codexAccountAction{margin-left:46px}.codexUpdated{display:none}.codexDevice{align-items:flex-start;flex-direction:column;gap:7px}}
     `
     if (typeof document !== 'undefined' && document.querySelector('style[data-plugin="' + PLUGIN_ID + '"]') === null) {
       const style = document.createElement('style')
@@ -121,6 +122,7 @@ window.__ModuleLoader__.load({
 
     function CodexSection() {
       const [status, setStatus] = useState(() => cachedStatus)
+      const [device, setDevice] = useState(null)
       const [error, setError] = useState('')
       const [busy, setBusy] = useState(false)
       const [watchLogin, setWatchLogin] = useState(false)
@@ -130,7 +132,10 @@ window.__ModuleLoader__.load({
           const value = !refresh && initialStatusRequest !== null ? await initialStatusRequest : await requestStatus(refresh)
           setStatus(value)
           setError('')
-          if (value.loggedIn) setWatchLogin(false)
+          if (value.loggedIn) {
+            setWatchLogin(false)
+            setDevice(null)
+          }
         } catch (loadError) {
           setError('Could not connect to the local Codex plugin service. Restart the DSH Web profile and try again.' + (messageOf(loadError) ? ' (' + messageOf(loadError) + ')' : ''))
         }
@@ -143,10 +148,24 @@ window.__ModuleLoader__.load({
       }, [load, watchLogin])
 
       const login = () => {
+        setDevice(null)
         const popup = window.open(BASE + '/start', 'dsh-openai-codex-login', 'popup,width=560,height=760')
         if (popup === null) setError('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.')
         setWatchLogin(true)
         window.setTimeout(() => { void load(false) }, 1000)
+      }
+
+      const deviceLogin = async () => {
+        setBusy(true)
+        try {
+          const response = await fetch(BASE + '/start-device', { cache: 'no-store' })
+          const value = await response.json()
+          if (!response.ok) throw new Error(value.error || 'HTTP ' + response.status)
+          setDevice(value)
+          setWatchLogin(true)
+          setError('')
+        } catch (deviceError) { setError(messageOf(deviceError)) }
+        finally { setBusy(false) }
       }
 
       const logout = async () => {
@@ -183,7 +202,7 @@ window.__ModuleLoader__.load({
 
       return h('section', { className: 'codexSection' },
         h('h2', { className: 'codexTitle' }, 'OpenAI Codex'),
-        h('p', { className: 'codexIntro' }, 'Use your ChatGPT subscription for Codex models and web search in DeepSeek Harness.'),
+        h('p', { className: 'codexIntro' }, 'Use your ChatGPT subscription for Codex models, image generation, and web search in DeepSeek Harness.'),
         loading
           ? h('div', { 'aria-label': 'Loading' }, h('div', { className: 'codexSkeleton' }), h('div', { className: 'codexSkeleton', style: { width: '72%' } }))
           : connected
@@ -215,14 +234,97 @@ window.__ModuleLoader__.load({
                     h('div', { className: 'codexAccountMeta' }, pending ? 'Waiting for sign-in' : 'Not connected'),
                   ),
                 ),
-                h(Button, { className: 'codexSignIn', variant: 'primary', disabled: busy || pending, onClick: login }, pending ? 'Waiting for authorization…' : 'Sign in'),
+                h('div', { className: 'codexSignInActions' },
+                  h(Button, { variant: 'primary', disabled: busy || pending, onClick: login }, pending && !device ? 'Waiting for authorization…' : 'Sign in'),
+                  h(Button, { className: 'codexDeviceButton', variant: 'outline', disabled: busy || pending, onClick: () => { void deviceLogin() } }, 'Use device code'),
+                ),
+                device
+                  ? h('div', { className: 'codexDevice' },
+                      h('div', { className: 'codexDeviceText' },
+                        h('span', { className: 'codexDeviceLabel' }, 'Enter this code at OpenAI'),
+                        h('strong', { className: 'codexDeviceCode' }, device.userCode),
+                      ),
+                      h('a', { className: 'codexDeviceLink', href: device.url, target: '_blank', rel: 'noreferrer' }, 'Open sign-in page'),
+                    )
+                  : null,
               ),
         status && status.loginError ? h('p', { className: 'codexError', role: 'alert' }, 'Sign-in failed: ' + status.loginError) : null,
         error ? h('p', { className: 'codexError', role: 'alert' }, error) : null,
       )
     }
 
-    const inject = ['slots']
+    function imageAttachment(block) {
+      if (!block || block.kind !== 'tool-result' || !Array.isArray(block.content)) return null
+      const item = block.content.find((part) => part && part.type === 'image' && part.attachment && typeof part.attachment.attachmentId === 'string')
+      return item ? item.attachment : null
+    }
+
+    function imagePrompt(block) {
+      const raw = block && block.kind === 'tool-result' ? block.call && block.call.argsRaw : block && block.argsRaw
+      if (typeof raw !== 'string') return ''
+      try {
+        const value = JSON.parse(raw)
+        return typeof value.prompt === 'string' ? value.prompt.trim() : ''
+      } catch { return '' }
+    }
+
+    function imageError(block) {
+      if (!block || block.kind !== 'tool-result' || !block.isError || !Array.isArray(block.content)) return ''
+      return block.content
+        .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
+        .map((part) => part.text)
+        .join('\n')
+        .trim()
+    }
+
+    function ImageToolView(props) {
+      const block = props.block
+      const settled = Boolean(block && block.kind === 'tool-result')
+      const attachment = imageAttachment(block)
+      const prompt = imagePrompt(block)
+      const failure = imageError(block)
+      const [preview, setPreview] = useState('')
+      const [previewError, setPreviewError] = useState('')
+      const resolver = useRef(props.resolveImage)
+      resolver.current = props.resolveImage
+
+      useEffect(() => {
+        let active = true
+        setPreview('')
+        setPreviewError('')
+        if (!attachment || typeof resolver.current !== 'function') return () => { active = false }
+        Promise.resolve(resolver.current(attachment))
+          .then((url) => {
+            if (typeof url !== 'string' || url.length === 0) throw new Error('Preview is unavailable.')
+            if (active) setPreview(url)
+          })
+          .catch((reason) => { if (active) setPreviewError(messageOf(reason)) })
+        return () => { active = false }
+      }, [attachment && attachment.attachmentId])
+
+      const failed = Boolean(failure || previewError)
+      const state = failed ? 'Failed' : preview ? 'Ready' : settled && attachment ? 'Loading preview' : 'Generating'
+      return h('section', { className: 'codexImageTool', 'aria-busy': !failed && !preview },
+        h('div', { className: 'codexImageHeader' },
+          h('span', { className: 'codexImageMark', 'aria-hidden': true }, '✦'),
+          h('div', { className: 'codexImageHeading' },
+            h('strong', null, 'Image generation'),
+            h('span', { role: 'status' }, state),
+          ),
+          props.inspect ? h('button', { type: 'button', className: 'codexImageInspect', onClick: props.inspect }, 'Details') : null,
+        ),
+        prompt ? h('p', { className: 'codexImagePrompt' }, prompt) : null,
+        preview
+          ? h('a', { className: 'codexImagePreviewLink', href: preview, target: '_blank', rel: 'noreferrer', title: 'Open full image' },
+              h('img', { className: 'codexImagePreview', src: preview, alt: prompt || 'Generated image', width: attachment.width, height: attachment.height }),
+            )
+          : failed
+            ? h('p', { className: 'codexImageError', role: 'alert' }, failure || previewError)
+            : h('div', { className: 'codexImageLoading', 'aria-hidden': true }),
+      )
+    }
+
+    const inject = ['slots', 'conversation']
     function apply(ctx) {
       installNavLogoObserver()
       ctx.slots.inject('settings.section', () => ctx.slots.register({
@@ -231,6 +333,13 @@ window.__ModuleLoader__.load({
         order: 11,
         label: () => 'OpenAI Codex',
       }, CodexSection))
+      ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+        name: 'tool.call.toolview',
+        key: 'image_gen',
+        inject: (sessionId) => ({
+          resolveImage: (attachment) => ctx.conversation.resolveImage(sessionId, attachment),
+        }),
+      }, ImageToolView))
     }
 
     exports.inject = inject

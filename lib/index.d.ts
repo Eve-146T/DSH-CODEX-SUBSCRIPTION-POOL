@@ -51,10 +51,18 @@ interface WebSearchProvider {
     available(): boolean;
     search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult>;
 }
+export interface DeviceAuthorization {
+    userCode: string;
+    deviceAuthId: string;
+    intervalMs: number;
+    expiresInMs: number;
+}
 /** Strictly validate a stored or submitted service-tier choice. */
 export declare function parseServiceTierSelection(value: unknown): ServiceTierSelection;
 /** Map UI language to the value expected by OpenAI's Responses API. */
 export declare function serviceTierRequestValue(selection: ServiceTierSelection): OpenAIServiceTier;
+/** Validate and normalize OpenAI's device-authorization initiation response. */
+export declare function normalizeDeviceAuthorization(value: unknown): DeviceAuthorization;
 /** Reduce the OpenAI response to the stable fields displayed by the Web card. */
 export declare function normalizeUsage(value: unknown): UsageSummary;
 /** Convert OpenAI Responses streaming events into DSH's provider-neutral search result. */
@@ -79,12 +87,18 @@ export declare class OpenAICodexAuth extends Service {
     private loginFlow;
     private lastLoginError;
     constructor(ctx: Context, config: Config);
-    /** Return a valid bearer token, refreshing and persisting it when near expiry. */
+    /** Return a valid credential, refreshing and persisting it when near expiry. */
+    credential(signal?: AbortSignal): Promise<OpenAICodexCredential | undefined>;
+    /** Return a valid bearer token for DSH's built-in Codex provider. */
     bearerToken(signal?: AbortSignal): Promise<string | undefined>;
+    /** Send one authenticated streaming request to the ChatGPT Codex Responses endpoint. */
+    responses(body: Record<string, unknown>, signal: AbortSignal | undefined, maxBytes: number, operation: string): Promise<unknown[]>;
     private createLoginRequest;
     private finishLogin;
     private logout;
     private beginBrowserLogin;
+    /** Begin OpenAI's device-code flow for SSH and other headless environments. */
+    private beginDeviceLogin;
     private status;
     private fetchUsage;
     private searchWeb;

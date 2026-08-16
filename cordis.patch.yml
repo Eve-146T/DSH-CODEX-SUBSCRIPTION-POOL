@@ -11,3 +11,6 @@
 - insert:
     - id: openai-codex-auth
       name: dsh-openai-codex-auth
+
+    - id: openai-codex-image
+      name: dsh-openai-codex-auth/image-tool
