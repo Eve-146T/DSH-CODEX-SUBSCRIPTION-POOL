@@ -16,14 +16,14 @@ Lets you manage your pool of OpenAI subscriptions in DSH.
 Add it to your DSH Web profile:
 
 ```sh
-dsh plugin --profile web add github:Eve-146T/deepseek-harness-openai-codex-auth
+dsh plugin --profile web add github:Eve-146T/DSH-CODEX-SUBSCRIPTION-POOL
 ```
 
 ## Tutorial
 
 ```sh
 # install the plugin
-dsh plugin --profile web add github:Eve-146T/deepseek-harness-openai-codex-auth
+dsh plugin --profile web add github:Eve-146T/DSH-CODEX-SUBSCRIPTION-POOL
 # restart dsh
 dsh --profile web
 ```

@@ -5,10 +5,10 @@
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Eve-146T/deepseek-harness-openai-codex-auth.git"
+    "url": "git+https://github.com/Eve-146T/DSH-CODEX-SUBSCRIPTION-POOL.git"
   },
-  "homepage": "https://github.com/Eve-146T/deepseek-harness-openai-codex-auth#readme",
-  "bugs": "https://github.com/Eve-146T/deepseek-harness-openai-codex-auth/issues",
+  "homepage": "https://github.com/Eve-146T/DSH-CODEX-SUBSCRIPTION-POOL#readme",
+  "bugs": "https://github.com/Eve-146T/DSH-CODEX-SUBSCRIPTION-POOL/issues",
   "keywords": ["deepseek-harness", "deepseek-harness-plugin", "dsh-plugin", "openai", "codex", "oauth", "chatgpt", "image-generation", "web-search"],
   "type": "module",
   "main": "lib/index.js",
