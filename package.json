@@ -1,6 +1,6 @@
 {
   "name": "dsh-openai-codex-auth",
-  "version": "0.5.1",
+  "version": "0.5.3",
   "description": "DeepSeek Harness plugin for multi-account OpenAI Codex OAuth, usage, web search, and image generation",
   "license": "GPL-3.0-only",
   "repository": {
