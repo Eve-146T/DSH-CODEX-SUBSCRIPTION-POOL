@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
+  availableResetCreditId,
   normalizeUsage,
   parseCredentialDocument,
   parseServiceTierSelection,
@@ -38,10 +39,12 @@ describe('multi-account credentials', () => {
     }), 'credentials.json')).toThrow('invalid credential document')
   })
 
-  it('exposes explicit account activation and removal control routes', () => {
+  it('exposes explicit account activation, removal, and reset-redemption routes', () => {
     const source = readFileSync(fileURLToPath(new URL('../src/index.ts', import.meta.url)), 'utf8')
     expect(source).toContain("url.pathname === '/accounts/remove'")
     expect(source).toContain("url.pathname === '/accounts/activate'")
+    expect(source).toContain("url.pathname === '/accounts/redeem'")
+    expect(source).toContain('redeem_request_id: randomUUID()')
     expect(source).toContain("url.searchParams.get('add') === '1'")
   })
 })
@@ -74,6 +77,17 @@ describe('normalizeUsage', () => {
   })
 })
 
+describe('reset credits', () => {
+  it('selects an available credit across supported response shapes', () => {
+    expect(availableResetCreditId({ credits: [
+      { id: 'spent', status: 'consumed' },
+      { credit_id: 'ready', status: 'available' },
+    ] })).toBe('ready')
+    expect(availableResetCreditId({ rate_limit_reset_credits: { items: [{ creditId: 'nested' }] } })).toBe('nested')
+    expect(availableResetCreditId({ available_count: 1 })).toBeUndefined()
+  })
+})
+
 describe('service tier preference', () => {
   it('maps the two UI choices to exact OpenAI request values', () => {
     expect(serviceTierRequestValue(parseServiceTierSelection('normal'))).toBe('default')
@@ -91,7 +105,6 @@ describe('settings UI integration', () => {
     const client = readFileSync(fileURLToPath(new URL('../client.js', import.meta.url)), 'utf8')
     expect(client).toContain('var(--dsw-alias-label-primary)')
     expect(client).toContain("require('@deepseek-ai/dsh-client-ui-primitives')")
-    expect(client).toContain('IconRefreshOutline16')
     expect(client).toContain('OPENAI_LOGO_PATH')
     expect(client).toContain('new MutationObserver(decorateNavLogo)')
     expect(client).toContain('installNavLogoObserver()')
@@ -105,6 +118,14 @@ describe('settings UI integration', () => {
     expect(client).toContain("className: 'codexAccountIdentity'")
     expect(client).toContain('.codexAccountMeta{display:flex;align-items:center')
     expect(client).toContain('align-items:center!important;justify-content:center!important')
+    expect(client).toContain("'Show generated images in threads'")
+    expect(client).toContain("usePreference('showGeneratedImages', true)")
+    expect(client).toContain('if (!showGeneratedImages) return null')
+    expect(client).toContain("usePreference('emailPrivacy', false)")
+    expect(client).toContain("usePreference('hideUselessModels', true)")
+    expect(client).toContain("className: 'codexMeterFill ' + health")
+    expect(client).not.toContain("h('h2', { className: 'codexTitle' }")
+    expect(client).not.toContain("className: 'codexIntro'")
     expect(client).not.toContain('This page uses a loopback bridge')
     expect(client).not.toContain('Service tier: provider default')
     expect(client).not.toContain('This plugin does not show a switch')

@@ -4,7 +4,7 @@ import z from '@deepseek-ai/schemastery'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { readFile, unlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -22,6 +22,8 @@ const DEFAULT_PREFERENCES_FILENAME = 'openai-codex-preferences.json'
 const TOKEN_REF = credentialRef('DSH_OPENAI_CODEX_TOKEN')
 const CONTROL_PORT = 1456
 const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
+const RESET_CREDITS_URL = 'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits'
+const RESET_CONSUME_URL = `${RESET_CREDITS_URL}/consume`
 const CODEX_RESPONSES_URL = 'https://chatgpt.com/backend-api/codex/responses'
 const SEARCH_MODEL = 'gpt-5.4-mini'
 const SEARCH_PROVIDER_ID = 'openai-codex'
@@ -269,6 +271,27 @@ function usageWindow(value: unknown): UsageWindow | undefined {
     ...windowSeconds === undefined ? {} : { windowSeconds },
     ...resetAt === undefined ? {} : { resetAt },
   }
+}
+
+/** Select the first available reset-credit id from currently observed API shapes. */
+export function availableResetCreditId(value: unknown): string | undefined {
+  if (value === null || typeof value !== 'object') return undefined
+  const root = value as Record<string, unknown>
+  const nested = root.rate_limit_reset_credits !== null && typeof root.rate_limit_reset_credits === 'object'
+    ? root.rate_limit_reset_credits as Record<string, unknown>
+    : undefined
+  const rows = [root.credits, root.items, root.data, nested?.credits, nested?.items]
+    .find(Array.isArray) as unknown[] | undefined
+  if (rows === undefined) return undefined
+  for (const item of rows) {
+    if (item === null || typeof item !== 'object') continue
+    const row = item as Record<string, unknown>
+    const status = typeof row.status === 'string' ? row.status.toLowerCase() : 'available'
+    if (status !== 'available' && status !== 'active') continue
+    const id = row.credit_id ?? row.creditId ?? row.id
+    if (typeof id === 'string' && id.length > 0) return id
+  }
+  return undefined
 }
 
 /** Reduce the OpenAI response to the stable fields displayed by the Web card. */
@@ -712,6 +735,33 @@ export class OpenAICodexAuth extends Service {
     return normalizeUsage(await response.json())
   }
 
+  private async redeemReset(accountId: string): Promise<void> {
+    const credential = await this.credential(undefined, accountId)
+    if (credential === undefined) throw new Error('OpenAI account was not found.')
+    const headers = {
+      accept: 'application/json',
+      authorization: `Bearer ${credential.access}`,
+      'chatgpt-account-id': credential.accountId,
+      'openai-beta': 'codex-1',
+      originator: 'DeepSeek Harness',
+      'user-agent': 'dsh-openai-codex-auth/0.5',
+    }
+    const creditResponse = await fetch(RESET_CREDITS_URL, { headers })
+    if (!creditResponse.ok) throw new Error(`Could not load reset credits (HTTP ${creditResponse.status}).`)
+    const creditId = availableResetCreditId(await creditResponse.json())
+    const response = await fetch(RESET_CONSUME_URL, {
+      method: 'POST',
+      headers: { ...headers, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        redeem_request_id: randomUUID(),
+        ...creditId === undefined ? {} : { credit_id: creditId },
+      }),
+    })
+    if (!response.ok) throw new Error(`Could not redeem the usage reset (HTTP ${response.status}).`)
+    this.usageCache.delete(accountId)
+    this.usageErrors.delete(accountId)
+  }
+
   private async searchWeb(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
     const events = await this.responses({
       model: SEARCH_MODEL,
@@ -782,7 +832,7 @@ export class OpenAICodexAuth extends Service {
         send(200, await this.status(url.searchParams.get('refresh') === '1'))
         return
       }
-      if ((url.pathname === '/accounts/remove' || url.pathname === '/accounts/activate') && request.method === 'POST') {
+      if ((url.pathname === '/accounts/remove' || url.pathname === '/accounts/activate' || url.pathname === '/accounts/redeem') && request.method === 'POST') {
         if (request.headers['x-dsh-csrf'] !== this.csrf) { send(403, { error: 'Invalid CSRF token.' }); return }
         if (!String(request.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) {
           send(415, { error: 'Content-Type must be application/json.' })
@@ -801,7 +851,8 @@ export class OpenAICodexAuth extends Service {
           return
         }
         if (url.pathname === '/accounts/remove') await this.logout(accountId)
-        else await this.activate(accountId)
+        else if (url.pathname === '/accounts/activate') await this.activate(accountId)
+        else await this.redeemReset(accountId)
         send(200, { ok: true })
         return
       }

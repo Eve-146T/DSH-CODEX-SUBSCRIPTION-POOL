@@ -49,6 +49,12 @@ account keeps its own usage display. Use **Activate account** to choose which
 credential powers Codex models, web search, and image generation; signing out
 of one account leaves the others connected.
 
+The same page includes three local display settings. **Hide useless models**
+keeps the model picker focused on the GPT-5.6 series and GPT-5.3 Spark, **Email
+privacy** masks the part before `@`, and **Show generated images in threads**
+can hide generated-image cards without disabling image generation or file
+saving.
+
 ### Headless or SSH sign-in
 
 Open **Settings → OpenAI Codex**, select **Use device code**, then open the
@@ -95,8 +101,11 @@ are not documented as a public third-party integration, so they may change.
 - **The sign-in window does not open:** allow pop-ups for DSH Web and try again.
 - **The plugin service is unreachable:** restart the `web` profile and open DSH
   Web on the same machine.
-- **No usage limit appears:** select the refresh icon. OpenAI may temporarily
-  return no displayable usage window even while the account remains connected.
+- **No usage limit appears:** OpenAI may temporarily return no displayable
+  weekly window even while the account remains connected; the plugin retries
+  automatically.
+- **An image path already exists:** `image_gen` intentionally refuses to
+  overwrite it. Choose another output path or remove the old file first.
 
 ## Optional credential path
 

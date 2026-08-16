@@ -7,30 +7,24 @@ window.__ModuleLoader__.load({
 
     const React = require('react')
     const { createElement: h, useCallback, useEffect, useRef, useState } = React
-    const { Button, IconRefreshOutline16 } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const { Button } = require('@deepseek-ai/dsh-client-ui-primitives')
     const BASE = 'http://127.0.0.1:1456'
     const PLUGIN_ID = 'dsh-openai-codex-auth'
+    const PREFERENCE_PREFIX = PLUGIN_ID + '.preference.'
+    const PREFERENCE_EVENT = PLUGIN_ID + ':preference'
     const OPENAI_LOGO_PATH = 'M38.355 36.52v-9.415c0-.793.297-1.388.99-1.784l18.93-10.902c2.578-1.486 5.65-2.18 8.82-2.18 11.894 0 19.426 9.218 19.426 19.029 0 .694 0 1.486-.1 2.28L66.799 22.05c-1.189-.694-2.379-.694-3.568 0L38.355 36.52Zm44.202 36.67V50.694c0-1.388-.596-2.38-1.785-3.073L55.897 33.15l8.126-4.658c.694-.396 1.289-.396 1.982 0l18.93 10.902c5.452 3.172 9.118 9.91 9.118 16.452 0 7.531-4.46 14.47-11.496 17.344Zm-50.05-19.82-8.127-4.757c-.693-.396-.99-.99-.99-1.784V25.025c0-10.605 8.126-18.633 19.127-18.633 4.163 0 8.028 1.388 11.3 3.865l-19.525 11.3c-1.189.693-1.784 1.684-1.784 3.072v28.74ZM50 63.478l-11.645-6.541V43.062L50 36.522l11.645 6.54v13.875L50 63.477Zm7.483 30.129c-4.163 0-8.028-1.388-11.3-3.865l19.525-11.3c1.189-.693 1.784-1.684 1.784-3.071V46.629l8.226 4.757c.694.396.991.991.991 1.784v21.803c0 10.605-8.226 18.633-19.226 18.633v.001Zm-23.49-22.101-18.93-10.902c-5.45-3.172-9.117-9.91-9.117-16.451 0-7.632 4.559-14.47 11.595-17.344v22.596c0 1.388.595 2.379 1.784 3.072l24.777 14.37-8.126 4.659c-.694.396-1.289.396-1.982 0ZM32.905 87.76c-11.2 0-19.425-8.425-19.425-18.83 0-.794.1-1.587.198-2.38L33.2 77.85c1.189.693 2.379.693 3.568 0l24.876-14.37v9.415c0 .793-.298 1.388-.992 1.784L41.724 85.58c-2.576 1.486-5.649 2.18-8.82 2.18h.001Zm24.579 11.793c11.992 0 22.001-8.523 24.281-19.822C92.864 76.857 100 66.451 100 55.846c0-6.937-2.973-13.676-8.325-18.533.496-2.081.793-4.163.793-6.243 0-14.172-11.496-24.777-24.777-24.777-2.676 0-5.253.396-7.83 1.288C55.401 3.221 49.257.445 42.517.445c-11.992 0-22.001 8.523-24.281 19.822C7.136 23.14 0 33.547 0 44.152c0 6.938 2.973 13.676 8.325 18.533-.496 2.081-.793 4.163-.793 6.243 0 14.172 11.497 24.778 24.777 24.778 2.676 0 5.253-.397 7.83-1.289 4.459 4.36 10.604 7.136 17.344 7.136Z'
 
     const css = `
       .codexSection{width:100%;color:var(--dsw-alias-label-primary);display:flex;flex-direction:column}
       .codexNavLogo{width:16px;height:16px;flex:none;color:inherit}
-      .codexTitle{margin:0;font-size:18px;line-height:1.4;font-weight:600}
-      .codexIntro{margin:6px 0 8px;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}
-      .codexAccountGroup{padding:0 0 18px;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexAccountGroup+.codexAccountGroup{padding-top:8px}.codexAccount{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}
-      .codexLogo{display:grid;place-items:center;width:34px;height:34px;flex:none;color:var(--dsw-alias-label-primary)}.codexLogo svg{width:24px;height:24px}
-      .codexAccountText{display:flex;flex:1;min-width:0;flex-direction:column;gap:1px}.codexAccountTitle{font-size:14px;font-weight:400;line-height:22px}.codexAccountIdentity{max-width:100%;overflow:hidden;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px;text-overflow:ellipsis;white-space:nowrap}.codexAccountMeta{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexConnectedDot{box-sizing:border-box;width:8px;height:8px;display:block;flex:none;border-radius:50%;background:var(--dsw-alias-state-success-primary)}
-      .codexAccountActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none}.codexAccountAction{flex:none}.codexActivate{height:38px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0 16px!important;line-height:20px!important}.codexActivate:disabled{opacity:.55}.codexDisconnect{box-sizing:border-box!important;height:38px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;border:1px solid var(--dsw-alias-state-error-primary)!important;border-radius:19px!important;color:var(--dsw-alias-state-error-primary)!important;background:transparent!important;padding:0 17px 1px!important;font-size:14px!important;line-height:20px!important}.codexDisconnect:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)!important}.codexDisconnect>span{display:inline-flex!important;align-items:center!important;justify-content:center!important;line-height:20px!important}
-      .codexUsageHeader{display:flex;align-items:center;gap:8px;padding:18px 0 4px}.codexUsageHeading{flex:1;margin:0;font-size:12px;font-weight:600;line-height:18px;letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary)}
-      .codexUpdated{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
-      .codexRefresh{appearance:none;width:28px;height:28px;display:inline-grid;place-items:center;flex:none;padding:0;border:0;border-radius:50%;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer}.codexRefresh:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.codexRefresh:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.codexRefresh:disabled{opacity:.4;cursor:default}.codexRefresh[data-busy=true] svg{animation:codexSpin .8s linear infinite}
-      .codexLimits{display:flex;flex-direction:column}.codexLimit{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexAccountGroup .codexLimit:last-child{border-bottom:0}
-      .codexLimitText{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}.codexLimitName{font-size:14px;font-weight:400;line-height:22px}.codexLimitReset{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexLimitValue{flex:none;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.codexLimitValue.high{color:var(--dsw-alias-state-warn-label)}
-      .codexCredit{margin:12px 0 0;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
-      .codexError{margin:12px 0 0;color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
-      .codexEmpty{margin:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}.codexSignInActions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;align-self:flex-start}.codexAddAccount{align-self:flex-start;margin-top:16px;height:38px!important;padding:0 16px!important}.codexDeviceButton{border-color:var(--dsw-alias-border-l2)!important}.codexDevice{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexDeviceText{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}.codexDeviceLabel{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexDeviceCode{font:600 18px/24px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em}.codexDeviceLink{color:var(--dsw-alias-state-business-primary);font-size:13px;text-decoration:none}.codexDeviceLink:hover{text-decoration:underline}.codexSkeleton{height:8px;margin:12px 0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}
+      .codexAccounts{border-top:1px solid var(--dsw-alias-border-l2)}.codexAccountGroup{border-bottom:1px solid var(--dsw-alias-border-l2)}.codexAccount{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;column-gap:12px;row-gap:10px;padding:15px 0}
+      .codexLogo{display:grid;grid-column:1;grid-row:1;place-items:center;width:34px;height:34px;color:var(--dsw-alias-label-primary);cursor:default;user-select:none}.codexLogo svg{width:24px;height:24px;transform-origin:center}
+      .codexAccountText{display:flex;min-width:0;flex-direction:column;gap:1px}.codexAccountTitle{font-size:14px;font-weight:500;line-height:20px}.codexAccountIdentity{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px;white-space:nowrap}.codexAccountMeta{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexConnectedDot{box-sizing:border-box;width:8px;height:8px;display:block;flex:none;border-radius:50%;background:var(--dsw-alias-state-success-primary)}
+      .codexMeter{grid-column:2;min-width:0}.codexMeterCopy{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}.codexMeterValue{font-size:13px;font-weight:600;white-space:nowrap}.codexMeterReset{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}.codexMeterTrack{height:7px;overflow:hidden;border-radius:99px;background:var(--dsw-alias-bg-skeleton)}.codexMeterFill{height:100%;min-width:3px;border-radius:inherit}.codexMeterFill.good{background:var(--dsw-alias-state-success-primary)}.codexMeterFill.warn{background:#f0a12b}.codexMeterFill.low{background:var(--dsw-alias-state-error-primary)}.codexMeterEmpty{grid-column:2;color:var(--dsw-alias-label-tertiary);font-size:12px}.codexAccountActions{display:grid;grid-column:2;grid-template-columns:118px 138px 98px;justify-content:end;gap:8px;min-width:0}.codexResetSlot{display:flex;width:118px;height:38px;align-items:center;justify-content:flex-end}.codexAccountAction{height:38px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;line-height:20px!important;white-space:nowrap!important}.codexActivate{width:138px!important;padding:0 10px!important}.codexActivate:disabled{opacity:.55}.codexDisconnect{box-sizing:border-box!important;width:98px!important;border:1px solid var(--dsw-alias-state-error-primary)!important;border-radius:19px!important;color:var(--dsw-alias-state-error-primary)!important;background:transparent!important;padding:0 12px!important}.codexDisconnect:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)!important}.codexRedeem{width:118px!important;padding:0 10px!important;border-color:var(--dsw-alias-state-business-primary)!important;color:var(--dsw-alias-state-business-primary)!important}
+      .codexError{margin:12px 0 0;color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:1.5;overflow-wrap:anywhere}.codexEmpty{margin:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}.codexSignInActions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;align-self:flex-start}.codexAddRow{display:flex;justify-content:flex-end;padding:15px 0 1px}.codexAddAccount{height:38px!important;padding:0 16px!important}.codexDeviceButton{border-color:var(--dsw-alias-border-l2)!important}.codexDevice{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexDeviceText{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}.codexDeviceLabel{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexDeviceCode{font:600 18px/24px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em}.codexDeviceLink{color:var(--dsw-alias-state-business-primary);font-size:13px;text-decoration:none}.codexDeviceLink:hover{text-decoration:underline}.codexSkeleton{height:8px;margin:12px 0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}
+      .codexPreferences{margin-top:17px;padding-top:15px;border-top:1px solid var(--dsw-alias-border-l2)}.codexPreferencesTitle{margin:0 0 5px;color:var(--dsw-alias-label-tertiary);font-size:11px;font-weight:700;line-height:18px;letter-spacing:.08em;text-transform:uppercase}.codexPreference{display:flex;min-height:48px;align-items:center;gap:14px;padding:6px 0}.codexPreference+.codexPreference{border-top:1px solid var(--dsw-alias-border-l2)}.codexPreferenceLabel{flex:1;font-size:14px;font-weight:500}.codexToggle{position:relative;width:38px;height:22px;flex:none;border:0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);cursor:pointer}.codexToggle:after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .18s}.codexToggle[data-on=true]{background:var(--dsw-alias-state-business-primary)}.codexToggle[data-on=true]:after{transform:translateX(16px)}.codexToggle:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
       .codexImageTool{width:min(100%,680px);overflow:hidden;margin:10px 0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}.codexImageHeader{display:flex;align-items:center;gap:10px;padding:12px 14px}.codexImageMark{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:7px;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary)}.codexImageMark svg{display:block;width:18px;height:18px}.codexImageHeading{display:flex;min-width:0;flex:1;flex-direction:column}.codexImageHeading strong{font-size:13px;line-height:18px}.codexImageHeading span{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:17px}.codexImageInspect{appearance:none;padding:4px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer}.codexImagePrompt{margin:0;padding:0 14px 12px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.codexImagePreviewLink{display:block;line-height:0}.codexImagePreview{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-module-platform)}.codexImageLoading{height:180px;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}.codexImageError{margin:0;padding:10px 14px;border-top:1px solid var(--dsw-alias-state-error-secondary);color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}
-      @keyframes codexPulse{to{opacity:.4}}@keyframes codexSpin{to{transform:rotate(360deg)}}@media(max-width:720px){.codexAccount{align-items:flex-start;flex-wrap:wrap}.codexAccountActions{width:100%;justify-content:flex-start;margin-left:46px}.codexUpdated{display:none}.codexDevice{align-items:flex-start;flex-direction:column;gap:7px}}@media(max-width:460px){.codexAccountActions{margin-left:0;flex-wrap:wrap}}
+      @keyframes codexPulse{to{opacity:.4}}@media(max-width:610px){.codexAccountActions{grid-template-columns:138px 98px;justify-content:start}.codexResetSlot{grid-column:1/3;justify-content:flex-start}.codexAccountIdentity{white-space:normal;overflow-wrap:anywhere}.codexAddRow{justify-content:flex-start;padding-left:46px}.codexDevice{align-items:flex-start;flex-direction:column;gap:7px}}@media(max-width:410px){.codexAccountActions{display:flex;flex-wrap:wrap}.codexResetSlot{width:100%}}
     `
     if (typeof document !== 'undefined' && document.querySelector('style[data-plugin="' + PLUGIN_ID + '"]') === null) {
       const style = document.createElement('style')
@@ -41,6 +35,96 @@ window.__ModuleLoader__.load({
 
     function messageOf(error) {
       return error instanceof Error ? error.message : String(error)
+    }
+
+    function readPreference(name, fallback) {
+      try {
+        const value = window.localStorage.getItem(PREFERENCE_PREFIX + name)
+        return value === null ? fallback : value === 'true'
+      } catch { return fallback }
+    }
+
+    function writePreference(name, value) {
+      try { window.localStorage.setItem(PREFERENCE_PREFIX + name, String(value)) } catch {}
+      window.dispatchEvent(new CustomEvent(PREFERENCE_EVENT, { detail: { name, value } }))
+    }
+
+    function usePreference(name, fallback) {
+      const [value, setValue] = useState(() => readPreference(name, fallback))
+      useEffect(() => {
+        const update = (event) => {
+          if (event.type === 'storage' && event.key === PREFERENCE_PREFIX + name) setValue(readPreference(name, fallback))
+          if (event.type === PREFERENCE_EVENT && event.detail && event.detail.name === name) setValue(Boolean(event.detail.value))
+        }
+        window.addEventListener('storage', update)
+        window.addEventListener(PREFERENCE_EVENT, update)
+        return () => {
+          window.removeEventListener('storage', update)
+          window.removeEventListener(PREFERENCE_EVENT, update)
+        }
+      }, [name, fallback])
+      return [value, (next) => writePreference(name, next)]
+    }
+
+    function maskEmail(value) {
+      const split = value.indexOf('@')
+      return split > 0 ? '*'.repeat(split) + value.slice(split) : value
+    }
+
+    function isAllowedModel(value) {
+      const model = String(value || '').toLowerCase().replace(/[_\s]+/g, '-')
+      return /(?:^|-)gpt-5\.6(?:-|$)/.test(model) || /(?:^|-)5\.6(?:-|$)/.test(model)
+        || /(?:^|-)gpt-5\.3-spark(?:-|$)/.test(model) || /(?:^|-)5\.3-spark(?:-|$)/.test(model)
+    }
+
+    function modelValue(node) {
+      return node.getAttribute('data-model-id') || node.getAttribute('data-model') || node.getAttribute('data-value') || node.textContent || ''
+    }
+
+    function looksLikeModel(value) {
+      return /gpt|codex|deepseek|claude|gemini|qwen|llama|spark|sonnet|opus|haiku|model/i.test(String(value || ''))
+    }
+
+    function applyModelFilter(enabled) {
+      document.querySelectorAll('[data-codex-model-hidden]').forEach((node) => {
+        node.style.removeProperty('display')
+        node.removeAttribute('data-codex-model-hidden')
+      })
+      if (!enabled) return
+      document.querySelectorAll('[data-model-id],[data-model],[role="option"][data-value]').forEach((node) => {
+        const value = modelValue(node)
+        if (value && looksLikeModel(value) && !isAllowedModel(value)) {
+          node.setAttribute('data-codex-model-hidden', 'true')
+          node.style.setProperty('display', 'none', 'important')
+        }
+      })
+    }
+
+    let modelFilterObserver = null
+    function setModelFilter(enabled) {
+      if (modelFilterObserver !== null) {
+        modelFilterObserver.disconnect()
+        modelFilterObserver = null
+      }
+      applyModelFilter(false)
+      if (!enabled || document.body === null) return
+      applyModelFilter(true)
+      modelFilterObserver = new MutationObserver(() => applyModelFilter(true))
+      modelFilterObserver.observe(document.body, { childList: true, subtree: true })
+    }
+
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => setModelFilter(readPreference('hideUselessModels', true)), 0)
+      window.addEventListener('storage', (event) => {
+        if (event.key === PREFERENCE_PREFIX + 'hideUselessModels') setModelFilter(readPreference('hideUselessModels', true))
+      })
+    }
+
+    function turnLogo(event) {
+      const node = event.currentTarget
+      const svg = node.querySelector('svg')
+      if (!svg) return
+      svg.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 650, easing: 'cubic-bezier(.45,0,.2,1)' })
     }
 
     let cachedStatus = null
@@ -114,24 +198,27 @@ window.__ModuleLoader__.load({
       return relative.charAt(0).toUpperCase() + relative.slice(1)
     }
 
-    function UsageRow(props) {
-      const used = Math.max(0, Math.min(100, Number(props.window.usedPercent) || 0))
-      const left = Math.max(0, Math.round(100 - used))
-      return h('div', { className: 'codexLimit' },
-        h('div', { className: 'codexLimitText' },
-          h('span', { className: 'codexLimitName' }, props.name),
-          h('span', { className: 'codexLimitReset' }, formatReset(props.window.resetAt)),
-        ),
-        h('span', { className: 'codexLimitValue' + (used >= 80 ? ' high' : '') }, left + '% left'),
-      )
+    function weeklyWindow(usage) {
+      if (!usage) return null
+      if (usage.secondary) return usage.secondary
+      if (usage.primary && Number(usage.primary.windowSeconds) >= 604800) return usage.primary
+      return null
     }
 
-    function usageRows(usage) {
-      if (!usage) return []
-      const rows = []
-      if (usage.primary) rows.push({ name: usage.primary.windowSeconds && usage.primary.windowSeconds <= 21600 ? '5-hour limit' : usage.primary.windowSeconds && usage.primary.windowSeconds >= 604800 ? 'Weekly limit' : 'Usage limit', window: usage.primary })
-      if (usage.secondary) rows.push({ name: 'Weekly limit', window: usage.secondary })
-      return rows
+    function UsageMeter(props) {
+      if (!props.window) return h('span', { className: 'codexMeterEmpty' }, 'Unavailable')
+      const used = Math.max(0, Math.min(100, Number(props.window.usedPercent) || 0))
+      const left = Math.max(0, Math.round(100 - used))
+      const health = left <= 15 ? 'low' : left <= 50 ? 'warn' : 'good'
+      return h('div', { className: 'codexMeter' },
+        h('div', { className: 'codexMeterCopy' },
+          h('strong', { className: 'codexMeterValue' }, left + '% left'),
+          h('span', { className: 'codexMeterReset' }, formatReset(props.window.resetAt).replace(/^./, (letter) => letter.toLowerCase())),
+        ),
+        h('div', { className: 'codexMeterTrack', role: 'progressbar', 'aria-label': left + '% remaining', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': left },
+          h('div', { className: 'codexMeterFill ' + health, style: { width: left + '%' } }),
+        ),
+      )
     }
 
     function AccountGroup(props) {
@@ -140,19 +227,24 @@ window.__ModuleLoader__.load({
       const plan = usage && usage.planType
         ? String(usage.planType).charAt(0).toUpperCase() + String(usage.planType).slice(1).toLowerCase()
         : ''
-      const windows = usageRows(usage)
+      const weekly = weeklyWindow(usage)
+      const identity = account.email || account.name || ''
       return h('div', { className: 'codexAccountGroup' },
         h('div', { className: 'codexAccount' },
-          h('div', { className: 'codexLogo' }, h(OpenAILogo)),
+          h('div', { className: 'codexLogo', onClick: turnLogo }, h(OpenAILogo)),
           h('div', { className: 'codexAccountText' },
             h('div', { className: 'codexAccountTitle' }, 'ChatGPT' + (plan ? ' ' + plan : '')),
-            account.email || account.name ? h('div', { className: 'codexAccountIdentity', title: account.email || account.name }, account.email || account.name) : null,
+            identity ? h('div', { className: 'codexAccountIdentity', title: identity }, props.emailPrivacy ? maskEmail(identity) : identity) : null,
             h('div', { className: 'codexAccountMeta' },
               h('span', { className: 'codexConnectedDot', 'aria-hidden': true }),
               h('span', null, 'Connected'),
             ),
           ),
+          h(UsageMeter, { window: weekly }),
           h('div', { className: 'codexAccountActions' },
+            h('span', { className: 'codexResetSlot' }, Number(usage && usage.resetCredits) > 0
+              ? h(Button, { className: 'codexAccountAction codexRedeem', variant: 'outline', size: 'md', disabled: props.busy, onClick: () => { void props.redeem(account.accountId) } }, 'Redeem reset')
+              : null),
             h(Button, {
               className: 'codexAccountAction codexActivate', variant: 'outline', size: 'md',
               disabled: props.busy || account.active,
@@ -165,16 +257,19 @@ window.__ModuleLoader__.load({
             }, 'Sign out'),
           ),
         ),
-        h('div', { className: 'codexUsageHeader' },
-          h('h3', { className: 'codexUsageHeading' }, 'Usage'),
-          h('span', { className: 'codexUpdated' }, usage && usage.fetchedAt ? 'Updated ' + new Date(usage.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''),
-          h('button', { type: 'button', className: 'codexRefresh', disabled: props.busy, 'data-busy': props.busy ? 'true' : 'false', 'aria-label': props.busy ? 'Refreshing usage' : 'Refresh usage', title: 'Refresh usage', onClick: props.refresh }, h(IconRefreshOutline16, { size: 16 })),
-        ),
-        windows.length > 0
-          ? h('div', { className: 'codexLimits' }, windows.map((row) => h(UsageRow, { key: row.name, name: row.name, window: row.window })))
-          : h('p', { className: 'codexEmpty' }, 'Usage information is unavailable right now.'),
-        usage && Number(usage.resetCredits) > 0 ? h('p', { className: 'codexCredit' }, usage.resetCredits + ' limit reset' + (usage.resetCredits === 1 ? '' : 's') + ' available') : null,
         account.usageError ? h('p', { className: 'codexError', role: 'status' }, 'Could not load usage: ' + account.usageError) : null,
+      )
+    }
+
+    function PreferenceToggle(props) {
+      return h('div', { className: 'codexPreference' },
+        h('span', { className: 'codexPreferenceLabel' }, props.label),
+        h('button', {
+          type: 'button', className: 'codexToggle', role: 'switch',
+          'aria-label': props.label, 'aria-checked': props.value ? 'true' : 'false',
+          'data-on': props.value ? 'true' : 'false',
+          onClick: () => props.onChange(!props.value),
+        }),
       )
     }
 
@@ -184,8 +279,13 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState('')
       const [busy, setBusy] = useState(false)
       const [watchLogin, setWatchLogin] = useState(false)
+      const [hideModels, setHideModels] = usePreference('hideUselessModels', true)
+      const [emailPrivacy, setEmailPrivacy] = usePreference('emailPrivacy', false)
+      const [showImages, setShowImages] = usePreference('showGeneratedImages', true)
       const expectedAccountCount = useRef(0)
       const sawLoginPending = useRef(false)
+
+      useEffect(() => { setModelFilter(hideModels) }, [hideModels])
 
       const load = useCallback(async (refresh) => {
         try {
@@ -256,11 +356,9 @@ window.__ModuleLoader__.load({
 
       const logout = (accountId) => accountAction('remove', accountId)
       const activate = (accountId) => accountAction('activate', accountId)
-
-      const refresh = async () => {
-        setBusy(true)
-        await load(true)
-        setBusy(false)
+      const redeem = (accountId) => {
+        if (!window.confirm('Redeem one usage limit reset for this account?')) return Promise.resolve()
+        return accountAction('redeem', accountId)
       }
 
       const loading = status === null && !error
@@ -269,14 +367,18 @@ window.__ModuleLoader__.load({
       const accounts = status && Array.isArray(status.accounts) ? status.accounts : []
 
       return h('section', { className: 'codexSection' },
-        h('h2', { className: 'codexTitle' }, 'OpenAI Codex'),
-        h('p', { className: 'codexIntro' }, 'Use your ChatGPT subscription for Codex models, image generation, and web search in DeepSeek Harness.'),
         loading
           ? h('div', { 'aria-label': 'Loading' }, h('div', { className: 'codexSkeleton' }), h('div', { className: 'codexSkeleton', style: { width: '72%' } }))
           : connected
             ? h(React.Fragment, null,
-                accounts.map((account) => h(AccountGroup, { key: account.accountId, account, busy, refresh, activate, logout })),
-                h(Button, { className: 'codexAddAccount', variant: 'outline', size: 'md', disabled: busy || pending, onClick: () => login(true) }, pending ? 'Waiting for authorization…' : 'Add another account'),
+                h('div', { className: 'codexAccounts' }, accounts.map((account) => h(AccountGroup, { key: account.accountId, account, busy, activate, logout, redeem, emailPrivacy }))),
+                h('div', { className: 'codexAddRow' }, h(Button, { className: 'codexAddAccount', variant: 'outline', size: 'md', disabled: busy || pending, onClick: () => login(true) }, pending ? 'Waiting for authorization…' : 'Add another account')),
+                h('div', { className: 'codexPreferences' },
+                  h('h3', { className: 'codexPreferencesTitle' }, 'Settings'),
+                  h(PreferenceToggle, { label: 'Hide useless models', value: hideModels, onChange: setHideModels }),
+                  h(PreferenceToggle, { label: 'Email privacy', value: emailPrivacy, onChange: setEmailPrivacy }),
+                  h(PreferenceToggle, { label: 'Show generated images in threads', value: showImages, onChange: setShowImages }),
+                ),
               )
             : h(React.Fragment, null,
                 h('div', { className: 'codexAccount' },
@@ -331,6 +433,7 @@ window.__ModuleLoader__.load({
 
     function ImageToolView(props) {
       const block = props.block
+      const [showGeneratedImages] = usePreference('showGeneratedImages', true)
       const settled = Boolean(block && block.kind === 'tool-result')
       const attachment = imageAttachment(block)
       const prompt = imagePrompt(block)
@@ -353,6 +456,8 @@ window.__ModuleLoader__.load({
           .catch((reason) => { if (active) setPreviewError(messageOf(reason)) })
         return () => { active = false }
       }, [attachment && attachment.attachmentId])
+
+      if (!showGeneratedImages) return null
 
       const failed = Boolean(failure || previewError)
       const state = failed ? 'Failed' : preview ? 'Ready' : settled && attachment ? 'Loading preview' : 'Generating'

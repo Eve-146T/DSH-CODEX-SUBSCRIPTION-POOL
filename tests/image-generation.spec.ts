@@ -78,6 +78,8 @@ describe('image generation protocol', () => {
     expect(client).toContain("key: 'image_gen'")
     expect(client).toContain('ctx.conversation.resolveImage')
     expect(client).toContain('function SparkleIcon()')
+    expect(client).toContain("usePreference('showGeneratedImages', true)")
+    expect(client).toContain('if (!showGeneratedImages) return null')
     expect(pkg.dependencies).not.toHaveProperty('@deepseek-ai/dsh-tools')
   })
 })

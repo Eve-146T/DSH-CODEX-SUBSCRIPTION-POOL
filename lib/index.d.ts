@@ -71,6 +71,8 @@ export declare function parseServiceTierSelection(value: unknown): ServiceTierSe
 export declare function serviceTierRequestValue(selection: ServiceTierSelection): OpenAIServiceTier;
 /** Validate and normalize OpenAI's device-authorization initiation response. */
 export declare function normalizeDeviceAuthorization(value: unknown): DeviceAuthorization;
+/** Select the first available reset-credit id from currently observed API shapes. */
+export declare function availableResetCreditId(value: unknown): string | undefined;
 /** Reduce the OpenAI response to the stable fields displayed by the Web card. */
 export declare function normalizeUsage(value: unknown): UsageSummary;
 /** Convert OpenAI Responses streaming events into DSH's provider-neutral search result. */
@@ -110,6 +112,7 @@ export declare class OpenAICodexAuth extends Service {
     private beginDeviceLogin;
     private status;
     private fetchUsage;
+    private redeemReset;
     private searchWeb;
     private startControlServer;
     private controlRequest;
