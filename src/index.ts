@@ -14,10 +14,18 @@ const AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize'
 const TOKEN_URL = 'https://auth.openai.com/oauth/token'
 const REDIRECT_URI = 'http://localhost:1455/auth/callback'
 const DEFAULT_FILENAME = 'openai-codex-auth.json'
+const DEFAULT_PREFERENCES_FILENAME = 'openai-codex-preferences.json'
 const TOKEN_REF = credentialRef('DSH_OPENAI_CODEX_TOKEN')
 const CONTROL_PORT = 1456
 const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
 const USAGE_CACHE_MS = 30_000
+const MAX_CONTROL_BODY_BYTES = 4 * 1024
+
+/** Choice presented by the plugin UI. */
+export type ServiceTierSelection = 'normal' | 'priority'
+
+/** OpenAI request value represented by a service-tier choice. */
+export type OpenAIServiceTier = 'default' | 'priority'
 
 /** Persisted OAuth credential. */
 export interface OpenAICodexCredential {
@@ -28,9 +36,10 @@ export interface OpenAICodexCredential {
 }
 
 /** Plugin configuration. */
-export interface Config { path?: string; dshHome?: string }
+export interface Config { path?: string; preferencesPath?: string; dshHome?: string }
 
-interface Document { version: 1; credential: OpenAICodexCredential }
+interface CredentialDocument { version: 1; credential: OpenAICodexCredential }
+interface PreferencesDocument { version: 1; serviceTier: ServiceTierSelection }
 
 interface UsageWindow {
   usedPercent: number
@@ -69,7 +78,7 @@ function accountId(access: string): string {
 }
 
 function parseCredential(text: string, filename: string): OpenAICodexCredential {
-  const value = JSON.parse(text) as Partial<Document>
+  const value = JSON.parse(text) as Partial<CredentialDocument>
   const credential = value.credential
   if (value.version !== 1 || credential === undefined
     || typeof credential.access !== 'string' || typeof credential.refresh !== 'string'
@@ -77,6 +86,46 @@ function parseCredential(text: string, filename: string): OpenAICodexCredential 
     throw new Error(`openai-codex-auth: invalid credential document ${filename}`)
   }
   return credential
+}
+
+/** Strictly validate a stored or submitted service-tier choice. */
+export function parseServiceTierSelection(value: unknown): ServiceTierSelection {
+  if (value === 'normal' || value === 'priority') return value
+  throw new Error('Service tier must be "normal" or "priority".')
+}
+
+/** Map UI language to the value expected by OpenAI's Responses API. */
+export function serviceTierRequestValue(selection: ServiceTierSelection): OpenAIServiceTier {
+  return selection === 'priority' ? 'priority' : 'default'
+}
+
+function parsePreferences(text: string, filename: string): PreferencesDocument {
+  const value = JSON.parse(text) as Partial<PreferencesDocument>
+  if (value.version !== 1) throw new Error(`openai-codex-auth: invalid preferences document ${filename}`)
+  return { version: 1, serviceTier: parseServiceTierSelection(value.serviceTier) }
+}
+
+async function readPreferences(filename: string): Promise<PreferencesDocument> {
+  try {
+    return parsePreferences(await readFile(filename, 'utf8'), filename)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { version: 1, serviceTier: 'normal' }
+    throw error
+  }
+}
+
+/** Read one small JSON request without allowing an unbounded loopback payload. */
+async function readControlJson(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = []
+  let bytes = 0
+  for await (const raw of request) {
+    const chunk = Buffer.isBuffer(raw) ? raw : Buffer.from(raw)
+    bytes += chunk.byteLength
+    if (bytes > MAX_CONTROL_BODY_BYTES) throw new Error('Request body is too large.')
+    chunks.push(chunk)
+  }
+  if (chunks.length === 0) throw new Error('Request body is missing.')
+  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
 }
 
 async function readCredential(filename: string): Promise<OpenAICodexCredential | undefined> {
@@ -169,9 +218,10 @@ declare module '@deepseek-ai/cordis' { interface Context { openaiCodexAuth: Open
 
 /** DSH service providing login, logout, and automatically refreshed bearer tokens. */
 export class OpenAICodexAuth extends Service {
-  static Config: z<Config> = z.object({ path: z.string(), dshHome: z.string() })
+  static Config: z<Config> = z.object({ path: z.string(), preferencesPath: z.string(), dshHome: z.string() })
   static inject = ['credentials']
   private readonly filename: string
+  private readonly preferencesFilename: string
   private readonly csrf = base64Url(randomBytes(24))
   private usageCache: UsageSummary | undefined
   private usageError: string | undefined
@@ -180,7 +230,9 @@ export class OpenAICodexAuth extends Service {
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'openaiCodexAuth')
-    this.filename = resolve(config.path ?? join(resolveDshHome(config.dshHome), DEFAULT_FILENAME))
+    const dshHome = resolveDshHome(config.dshHome)
+    this.filename = resolve(config.path ?? join(dshHome, DEFAULT_FILENAME))
+    this.preferencesFilename = resolve(config.preferencesPath ?? join(dshHome, DEFAULT_PREFERENCES_FILENAME))
     ctx.effect(async () => {
       const token = await this.bearerToken()
       if (token !== undefined) await ctx.credentials.set(TOKEN_REF, token)
@@ -260,9 +312,18 @@ export class OpenAICodexAuth extends Service {
   }
 
   private async status(refresh: boolean): Promise<Record<string, unknown>> {
+    const preferences = await readPreferences(this.preferencesFilename)
+    const serviceTier = {
+      selection: preferences.serviceTier,
+      requestValue: serviceTierRequestValue(preferences.serviceTier),
+      forwardingSupported: false,
+    }
     let credential = await readCredential(this.filename)
     if (credential === undefined) {
-      return { loggedIn: false, loginPending: this.loginFlow !== undefined, loginError: this.lastLoginError, csrf: this.csrf }
+      return {
+        loggedIn: false, loginPending: this.loginFlow !== undefined, loginError: this.lastLoginError,
+        serviceTier, csrf: this.csrf,
+      }
     }
     try {
       await this.bearerToken()
@@ -285,6 +346,7 @@ export class OpenAICodexAuth extends Service {
       expiresAt: credential.expires,
       usage: this.usageCache,
       usageError: this.usageError,
+      serviceTier,
       csrf: this.csrf,
     }
   }
@@ -356,6 +418,31 @@ export class OpenAICodexAuth extends Service {
         send(200, { ok: true })
         return
       }
+      if (url.pathname === '/service-tier-preference' && request.method === 'POST') {
+        if (request.headers['x-dsh-csrf'] !== this.csrf) { send(403, { error: 'Invalid CSRF token.' }); return }
+        if (!String(request.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) {
+          send(415, { error: 'Content-Type must be application/json.' })
+          return
+        }
+        let body: unknown
+        try { body = await readControlJson(request) } catch (error) {
+          send(400, { error: error instanceof Error ? error.message : String(error) })
+          return
+        }
+        const row = body !== null && typeof body === 'object' ? body as Record<string, unknown> : {}
+        let selection: ServiceTierSelection
+        try { selection = parseServiceTierSelection(row.selection) } catch (error) {
+          send(400, { error: error instanceof Error ? error.message : String(error) })
+          return
+        }
+        await this.writePreferences(selection)
+        send(200, {
+          selection,
+          requestValue: serviceTierRequestValue(selection),
+          forwardingSupported: false,
+        })
+        return
+      }
       send(404, { error: 'Not found' })
     } catch (error) {
       send(500, { error: error instanceof Error ? error.message : String(error) })
@@ -364,6 +451,12 @@ export class OpenAICodexAuth extends Service {
 
   private write(credential: OpenAICodexCredential): Promise<void> {
     return writeFileAtomic(this.filename, `${JSON.stringify({ version: 1, credential }, null, 2)}\n`, {
+      mode: 0o600, dirMode: 0o700,
+    })
+  }
+
+  private writePreferences(serviceTier: ServiceTierSelection): Promise<void> {
+    return writeFileAtomic(this.preferencesFilename, `${JSON.stringify({ version: 1, serviceTier }, null, 2)}\n`, {
       mode: 0o600, dirMode: 0o700,
     })
   }

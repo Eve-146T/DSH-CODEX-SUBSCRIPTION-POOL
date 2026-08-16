@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { normalizeUsage } from '../src/index.ts'
+import {
+  normalizeUsage,
+  parseServiceTierSelection,
+  serviceTierRequestValue,
+} from '../src/index.ts'
 
 describe('normalizeUsage', () => {
   it('projects the Codex rate-limit response used by the settings card', () => {
@@ -27,4 +31,16 @@ describe('normalizeUsage', () => {
     expect(normalizeUsage({ rate_limit: { primary_window: { used_percent: 120 } } }).primary)
       .toEqual({ usedPercent: 100 })
   })
+})
+
+describe('service tier preference', () => {
+  it('maps the two UI choices to exact OpenAI request values', () => {
+    expect(serviceTierRequestValue(parseServiceTierSelection('normal'))).toBe('default')
+    expect(serviceTierRequestValue(parseServiceTierSelection('priority'))).toBe('priority')
+  })
+
+  it.each([undefined, null, '', 'default', 'flex', 'auto', 'Priority', 1, {}])(
+    'rejects unsupported or malformed choice %j',
+    (value) => { expect(() => parseServiceTierSelection(value)).toThrow('must be "normal" or "priority"') },
+  )
 })

@@ -1,6 +1,10 @@
 /** Native OpenAI Codex OAuth login for DeepSeek Harness. */
 import { Context, Service } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
+/** Choice presented by the plugin UI. */
+export type ServiceTierSelection = 'normal' | 'priority';
+/** OpenAI request value represented by a service-tier choice. */
+export type OpenAIServiceTier = 'default' | 'priority';
 /** Persisted OAuth credential. */
 export interface OpenAICodexCredential {
     access: string;
@@ -11,6 +15,7 @@ export interface OpenAICodexCredential {
 /** Plugin configuration. */
 export interface Config {
     path?: string;
+    preferencesPath?: string;
     dshHome?: string;
 }
 interface UsageWindow {
@@ -26,6 +31,10 @@ interface UsageSummary {
     resetCredits?: number;
     fetchedAt: number;
 }
+/** Strictly validate a stored or submitted service-tier choice. */
+export declare function parseServiceTierSelection(value: unknown): ServiceTierSelection;
+/** Map UI language to the value expected by OpenAI's Responses API. */
+export declare function serviceTierRequestValue(selection: ServiceTierSelection): OpenAIServiceTier;
 /** Reduce the OpenAI response to the stable fields displayed by the Web card. */
 export declare function normalizeUsage(value: unknown): UsageSummary;
 declare module '@deepseek-ai/cordis' {
@@ -38,6 +47,7 @@ export declare class OpenAICodexAuth extends Service {
     static Config: z<Config>;
     static inject: string[];
     private readonly filename;
+    private readonly preferencesFilename;
     private readonly csrf;
     private usageCache;
     private usageError;
@@ -55,6 +65,7 @@ export declare class OpenAICodexAuth extends Service {
     private startControlServer;
     private controlRequest;
     private write;
+    private writePreferences;
     private waitForCallback;
 }
 export default OpenAICodexAuth;

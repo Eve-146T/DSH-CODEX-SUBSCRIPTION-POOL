@@ -33,6 +33,8 @@ window.__ModuleLoader__.load({
       .codexReset{font-size:12px;color:var(--text-secondary,#667085)}
       .codexPlan{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}.codexPlan strong{font-size:14px}.codexPlan span{font-size:12px;color:var(--text-secondary,#667085)}
       .codexNotice{margin:15px 0 0;border-radius:10px;padding:10px 12px;background:rgba(59,130,246,.08);color:var(--text-secondary,#526071);font-size:12px;line-height:1.55}
+      .codexTierUnavailable{margin:17px 0 0;border:1px solid var(--border-primary,#e5e7eb);border-radius:12px;padding:13px 14px;background:var(--background-secondary,#fafafa)}
+      .codexTierUnavailable strong{display:block;font-size:13px}.codexTierUnavailable span{display:block;margin-top:5px;color:var(--text-secondary,#667085);font-size:12px;line-height:1.55}
       .codexError{margin:14px 0 0;border-radius:10px;padding:10px 12px;background:rgba(239,68,68,.09);color:#b42318;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
       .codexEmpty{padding:6px 0;color:var(--text-secondary,#667085);font-size:13px;line-height:1.6}.codexSkeleton{height:9px;margin:10px 0;border-radius:99px;background:linear-gradient(90deg,#eee,#f7f7f7,#eee);background-size:200% 100%;animation:codexPulse 1.2s infinite}
       @keyframes codexPulse{to{background-position:-200% 0}}@media(max-width:620px){.codexSection{padding:18px 15px 30px}.codexHero{padding:18px;flex-direction:column}.codexBody{padding:17px 18px 20px}.codexGrid{grid-template-columns:1fr}}
@@ -172,6 +174,12 @@ window.__ModuleLoader__.load({
                 : h('p', { className: 'codexEmpty' }, 'Signing in opens OpenAI\'s authorization page. The plugin stores and refreshes tokens only on the host; the web page never receives them.'),
             status && status.loginError ? h('p', { className: 'codexError', role: 'alert' }, 'Sign-in failed: ' + status.loginError) : null,
             error ? h('p', { className: 'codexError', role: 'alert' }, error) : null,
+            status && status.serviceTier && !status.serviceTier.forwardingSupported
+              ? h('div', { className: 'codexTierUnavailable' },
+                  h('strong', null, 'Service tier: provider default'),
+                  h('span', null, 'Normal and Priority need support in DeepSeek Harness and its pi-ai adapter. This plugin does not show a switch until the choice can affect real requests.'),
+                )
+              : null,
             h('div', { className: 'codexActions' },
               h('button', { type: 'button', className: 'codexButton primary', disabled: busy || pending || loading, onClick: login }, loading ? 'Checking status…' : connected ? 'Sign in again' : pending ? 'Waiting for authorization…' : 'Sign in with OpenAI'),
               connected ? h('button', { type: 'button', className: 'codexButton', disabled: busy, onClick: refresh }, busy ? 'Refreshing…' : 'Refresh usage') : null,
