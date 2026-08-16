@@ -1,3 +1,7 @@
+- id: web
+  config:
+    searchProvider: openai-codex
+
 - id: llm-pi-ai
   config:
     providers:

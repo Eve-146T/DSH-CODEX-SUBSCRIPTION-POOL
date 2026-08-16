@@ -7,6 +7,8 @@
 `dsh-openai-codex-auth` lets DeepSeek Harness (DSH) use an OpenAI Codex
 subscription. Sign in with OpenAI OAuth, view Codex usage in DSH, and use the
 `openai-codex` model provider without copying tokens into the web interface.
+DSH's `web_search` tool is routed through OpenAI Codex instead of making a
+separate DeepSeek API request.
 
 This is an independent community plugin. It is not made or endorsed by OpenAI
 or DeepSeek.

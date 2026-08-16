@@ -31,15 +31,40 @@ interface UsageSummary {
     resetCredits?: number;
     fetchedAt: number;
 }
+interface WebSearchRequest {
+    query: string;
+    maxResults?: number;
+}
+interface WebSearchSource {
+    url: string;
+    title?: string;
+    snippet?: string;
+    publishedAt?: string;
+}
+interface WebSearchResult {
+    content?: string;
+    sources: WebSearchSource[];
+    truncated: boolean;
+}
+interface WebSearchProvider {
+    id: string;
+    available(): boolean;
+    search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult>;
+}
 /** Strictly validate a stored or submitted service-tier choice. */
 export declare function parseServiceTierSelection(value: unknown): ServiceTierSelection;
 /** Map UI language to the value expected by OpenAI's Responses API. */
 export declare function serviceTierRequestValue(selection: ServiceTierSelection): OpenAIServiceTier;
 /** Reduce the OpenAI response to the stable fields displayed by the Web card. */
 export declare function normalizeUsage(value: unknown): UsageSummary;
+/** Convert OpenAI Responses streaming events into DSH's provider-neutral search result. */
+export declare function normalizeWebSearchEvents(events: readonly unknown[]): WebSearchResult;
 declare module '@deepseek-ai/cordis' {
     interface Context {
         openaiCodexAuth: OpenAICodexAuth;
+        web: {
+            registerSearchProvider(provider: WebSearchProvider): () => void;
+        };
     }
 }
 /** DSH service providing login, logout, and automatically refreshed bearer tokens. */
@@ -62,6 +87,7 @@ export declare class OpenAICodexAuth extends Service {
     private beginBrowserLogin;
     private status;
     private fetchUsage;
+    private searchWeb;
     private startControlServer;
     private controlRequest;
     private write;

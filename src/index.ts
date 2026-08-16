@@ -18,8 +18,12 @@ const DEFAULT_PREFERENCES_FILENAME = 'openai-codex-preferences.json'
 const TOKEN_REF = credentialRef('DSH_OPENAI_CODEX_TOKEN')
 const CONTROL_PORT = 1456
 const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
+const CODEX_RESPONSES_URL = 'https://chatgpt.com/backend-api/codex/responses'
+const SEARCH_MODEL = 'gpt-5.4-mini'
+const SEARCH_PROVIDER_ID = 'openai-codex'
 const USAGE_CACHE_MS = 30_000
 const MAX_CONTROL_BODY_BYTES = 4 * 1024
+const MAX_SEARCH_RESPONSE_BYTES = 4 * 1024 * 1024
 
 /** Choice presented by the plugin UI. */
 export type ServiceTierSelection = 'normal' | 'priority'
@@ -60,6 +64,15 @@ interface LoginFlow {
   url: string
   completion: Promise<void>
   abort: AbortController
+}
+
+interface WebSearchRequest { query: string; maxResults?: number }
+interface WebSearchSource { url: string; title?: string; snippet?: string; publishedAt?: string }
+interface WebSearchResult { content?: string; sources: WebSearchSource[]; truncated: boolean }
+interface WebSearchProvider {
+  id: string
+  available(): boolean
+  search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult>
 }
 
 function base64Url(value: Buffer): string {
@@ -206,6 +219,91 @@ export function normalizeUsage(value: unknown): UsageSummary {
   }
 }
 
+function httpUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length === 0) return undefined
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : undefined
+  } catch { return undefined }
+}
+
+/** Convert OpenAI Responses streaming events into DSH's provider-neutral search result. */
+export function normalizeWebSearchEvents(events: readonly unknown[]): WebSearchResult {
+  const answer: string[] = []
+  const cited: WebSearchSource[] = []
+  const discovered: WebSearchSource[] = []
+  for (const value of events) {
+    if (value === null || typeof value !== 'object') continue
+    const event = value as Record<string, unknown>
+    if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') answer.push(event.delta)
+    if (event.type === 'response.output_text.annotation.added'
+      && event.annotation !== null && typeof event.annotation === 'object') {
+      const annotation = event.annotation as Record<string, unknown>
+      const url = httpUrl(annotation.url)
+      if (annotation.type === 'url_citation' && url !== undefined) {
+        cited.push({ url, ...typeof annotation.title === 'string' && annotation.title.length > 0
+          ? { title: annotation.title } : {} })
+      }
+    }
+    if (event.type === 'response.output_item.done' && event.item !== null && typeof event.item === 'object') {
+      const item = event.item as Record<string, unknown>
+      const action = item.action !== null && typeof item.action === 'object'
+        ? item.action as Record<string, unknown> : undefined
+      if (item.type !== 'web_search_call' || !Array.isArray(action?.sources)) continue
+      for (const source of action.sources) {
+        if (source === null || typeof source !== 'object') continue
+        const url = httpUrl((source as Record<string, unknown>).url)
+        if (url !== undefined) discovered.push({ url })
+      }
+    }
+  }
+  const seen = new Set<string>()
+  const sources = [...cited, ...discovered].filter((source) => {
+    if (seen.has(source.url)) return false
+    seen.add(source.url)
+    return true
+  })
+  if (sources.length === 0) throw new Error('OpenAI returned no web-search sources.')
+  const content = answer.join('').trim()
+  return { ...content.length > 0 ? { content } : {}, sources, truncated: false }
+}
+
+async function readSseEvents(response: Response): Promise<unknown[]> {
+  if (response.body === null) throw new Error('OpenAI returned an empty web-search stream.')
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  const events: unknown[] = []
+  let buffer = ''
+  let bytes = 0
+  const parseFrame = (frame: string): void => {
+    const data = frame.split(/\r?\n/u)
+      .filter(line => line.startsWith('data:'))
+      .map(line => line.slice(5).trimStart())
+      .join('\n')
+    if (data.length === 0 || data === '[DONE]') return
+    try { events.push(JSON.parse(data) as unknown) } catch { /* Ignore non-JSON keepalive frames. */ }
+  }
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    bytes += value.byteLength
+    if (bytes > MAX_SEARCH_RESPONSE_BYTES) {
+      await reader.cancel('OpenAI web-search response exceeded the safety limit.')
+      throw new Error('OpenAI web-search response exceeded the 4 MiB safety limit.')
+    }
+    buffer += decoder.decode(value, { stream: true })
+    for (;;) {
+      const separator = /\r?\n\r?\n/u.exec(buffer)
+      if (separator === null || separator.index === undefined) break
+      parseFrame(buffer.slice(0, separator.index))
+      buffer = buffer.slice(separator.index + separator[0].length)
+    }
+  }
+  buffer += decoder.decode()
+  if (buffer.trim().length > 0) parseFrame(buffer)
+  return events
+}
+
 function isLocalOrigin(origin: string | undefined): origin is string {
   if (origin === undefined) return false
   try {
@@ -214,12 +312,17 @@ function isLocalOrigin(origin: string | undefined): origin is string {
   } catch { return false }
 }
 
-declare module '@deepseek-ai/cordis' { interface Context { openaiCodexAuth: OpenAICodexAuth } }
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    openaiCodexAuth: OpenAICodexAuth
+    web: { registerSearchProvider(provider: WebSearchProvider): () => void }
+  }
+}
 
 /** DSH service providing login, logout, and automatically refreshed bearer tokens. */
 export class OpenAICodexAuth extends Service {
   static Config: z<Config> = z.object({ path: z.string(), preferencesPath: z.string(), dshHome: z.string() })
-  static inject = ['credentials']
+  static inject = ['credentials', 'web']
   private readonly filename: string
   private readonly preferencesFilename: string
   private readonly csrf = base64Url(randomBytes(24))
@@ -243,6 +346,11 @@ export class OpenAICodexAuth extends Service {
       return () => { clearInterval(timer) }
     })
     ctx.effect(() => this.startControlServer())
+    ctx.effect(() => ctx.web.registerSearchProvider({
+      id: SEARCH_PROVIDER_ID,
+      available: () => true,
+      search: (request, signal) => this.searchWeb(request, signal),
+    }))
   }
 
   /** Return a valid bearer token, refreshing and persisting it when near expiry. */
@@ -364,6 +472,40 @@ export class OpenAICodexAuth extends Service {
     })
     if (!response.ok) throw new Error(`Codex usage request failed (HTTP ${response.status})`)
     return normalizeUsage(await response.json())
+  }
+
+  private async searchWeb(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
+    const access = await this.bearerToken(signal)
+    if (access === undefined) throw new Error('Sign in with OpenAI before using web search.')
+    const response = await fetch(CODEX_RESPONSES_URL, {
+      method: 'POST',
+      headers: {
+        accept: 'text/event-stream',
+        authorization: `Bearer ${access}`,
+        'chatgpt-account-id': accountId(access),
+        'content-type': 'application/json',
+        'openai-beta': 'responses=experimental',
+        originator: 'deepseek-harness',
+        'user-agent': 'deepseek-harness-openai-codex-auth/0.3',
+      },
+      body: JSON.stringify({
+        model: SEARCH_MODEL,
+        store: false,
+        stream: true,
+        instructions: 'Use web search. Give a concise answer supported by the returned sources.',
+        input: [{ role: 'user', content: [{ type: 'input_text', text: request.query }] }],
+        tools: [{ type: 'web_search' }],
+        tool_choice: 'auto',
+        include: ['web_search_call.action.sources'],
+        service_tier: 'default',
+      }),
+      ...signal === undefined ? {} : { signal },
+    })
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 1000)
+      throw new Error(`OpenAI Codex web search failed (HTTP ${response.status})${detail.length > 0 ? `: ${detail}` : ''}`)
+    }
+    return normalizeWebSearchEvents(await readSseEvents(response))
   }
 
   private startControlServer(): Promise<() => void> {
