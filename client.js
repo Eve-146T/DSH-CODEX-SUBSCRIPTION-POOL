@@ -14,7 +14,7 @@ window.__ModuleLoader__.load({
 
     const css = `
       .codexSection{width:100%;color:var(--dsw-alias-label-primary);display:flex;flex-direction:column}
-      .codexNavItem>svg:not(.codexNavLogo){display:none}.codexNavLogo{width:16px;height:16px;flex:none;color:inherit}
+      .codexNavLogo{width:16px;height:16px;flex:none;color:inherit}
       .codexTitle{margin:0;font-size:18px;line-height:1.4;font-weight:600}
       .codexIntro{margin:6px 0 8px;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}
       .codexAccount{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}
@@ -67,6 +67,35 @@ window.__ModuleLoader__.load({
       return h('svg', { className: props && props.className, viewBox: '0 0 100 100', fill: 'currentColor', 'aria-hidden': true }, h('path', { d: OPENAI_LOGO_PATH }))
     }
 
+    function decorateNavLogo() {
+      const button = [...document.querySelectorAll('button')].find((candidate) => candidate.textContent.trim() === 'OpenAI Codex')
+      if (!button) return
+      const originalIcon = button.querySelector('svg:not(.codexNavLogo)')
+      if (originalIcon) originalIcon.style.display = 'none'
+      if (button.querySelector('.codexNavLogo')) return
+      const logo = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      logo.setAttribute('class', 'codexNavLogo')
+      logo.setAttribute('viewBox', '0 0 100 100')
+      logo.setAttribute('fill', 'currentColor')
+      logo.setAttribute('aria-hidden', 'true')
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      path.setAttribute('d', OPENAI_LOGO_PATH)
+      logo.appendChild(path)
+      button.insertBefore(logo, button.firstChild)
+    }
+
+    let navLogoObserver = null
+    function installNavLogoObserver() {
+      if (navLogoObserver !== null) return
+      if (document.body === null) {
+        document.addEventListener('DOMContentLoaded', installNavLogoObserver, { once: true })
+        return
+      }
+      decorateNavLogo()
+      navLogoObserver = new MutationObserver(decorateNavLogo)
+      navLogoObserver.observe(document.body, { childList: true, subtree: true })
+    }
+
     function formatReset(seconds) {
       if (!Number.isFinite(seconds)) return 'Reset time unavailable'
       const date = new Date(seconds * 1000)
@@ -95,23 +124,6 @@ window.__ModuleLoader__.load({
       const [error, setError] = useState('')
       const [busy, setBusy] = useState(false)
       const [watchLogin, setWatchLogin] = useState(false)
-
-      useEffect(() => {
-        const button = [...document.querySelectorAll('button')].find((candidate) => candidate.textContent.trim() === 'OpenAI Codex')
-        if (!button || button.querySelector('.codexNavLogo')) return
-        button.classList.add('codexNavItem')
-        const originalIcon = button.querySelector('svg')
-        if (originalIcon) originalIcon.style.display = 'none'
-        const logo = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-        logo.setAttribute('class', 'codexNavLogo')
-        logo.setAttribute('viewBox', '0 0 100 100')
-        logo.setAttribute('fill', 'currentColor')
-        logo.setAttribute('aria-hidden', 'true')
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-        path.setAttribute('d', OPENAI_LOGO_PATH)
-        logo.appendChild(path)
-        button.insertBefore(logo, button.firstChild)
-      }, [])
 
       const load = useCallback(async (refresh) => {
         try {
@@ -212,6 +224,7 @@ window.__ModuleLoader__.load({
 
     const inject = ['slots']
     function apply(ctx) {
+      installNavLogoObserver()
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'openai-codex',

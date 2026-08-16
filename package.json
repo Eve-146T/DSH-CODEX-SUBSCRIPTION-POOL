@@ -1,6 +1,6 @@
 {
   "name": "dsh-openai-codex-auth",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "DeepSeek Harness Codex plugin for OpenAI OAuth login, local credentials, and ChatGPT usage tracking",
   "license": "GPL-3.0-only",
   "repository": {

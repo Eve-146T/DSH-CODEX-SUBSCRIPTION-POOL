@@ -54,6 +54,8 @@ describe('settings UI integration', () => {
     expect(client).toContain("require('@deepseek-ai/dsh-client-ui-primitives')")
     expect(client).toContain('IconRefreshOutline16')
     expect(client).toContain('OPENAI_LOGO_PATH')
+    expect(client).toContain('new MutationObserver(decorateNavLogo)')
+    expect(client).toContain('installNavLogoObserver()')
     expect(client).toContain('prefetchStatus()')
     expect(client).toContain('useState(() => cachedStatus)')
     expect(client).toContain("className: 'codexConnectedDot'")
