@@ -7,8 +7,10 @@
 `dsh-openai-codex-auth` lets DeepSeek Harness (DSH) use an OpenAI Codex
 subscription. Sign in with OpenAI OAuth, view Codex usage in DSH, and use the
 `openai-codex` model provider without copying tokens into the web interface.
-DSH's `web_search` tool is routed through OpenAI Codex instead of making a
-separate DeepSeek API request.
+
+It also **fixes web search when using Codex in DSH**: the `web_search` tool is
+routed through OpenAI's native web search instead of making a separate DeepSeek
+API request.
 
 This is an independent community plugin. It is not made or endorsed by OpenAI
 or DeepSeek.
@@ -32,7 +34,7 @@ dsh --profile web
 Then:
 
 1. Open **Settings → OpenAI Codex**.
-2. Select **Sign in with OpenAI** and finish signing in.
+2. Select **Sign in** and finish signing in.
 3. Open **Settings → Model Providers** and choose `openai-codex`.
 
 That is all you need for a normal local installation.
@@ -53,7 +55,7 @@ are not documented as a public third-party integration, so they may change.
 - **The sign-in window does not open:** allow pop-ups for DSH Web and try again.
 - **The plugin service is unreachable:** restart the `web` profile and open DSH
   Web on the same machine.
-- **No usage limit appears:** select **Refresh usage**. OpenAI may temporarily
+- **No usage limit appears:** select the refresh icon. OpenAI may temporarily
   return no displayable usage window even while the account remains connected.
 
 ## Optional credential path
