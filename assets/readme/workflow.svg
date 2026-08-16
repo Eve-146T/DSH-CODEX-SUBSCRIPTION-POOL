@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" role="img" aria-labelledby="title desc">
-  <title id="title">OpenAI Codex 授权与凭据流</title>
-  <desc id="desc">浏览器通过 OpenAI OAuth 授权，经 localhost 回调写入本机凭据，再供 DSH 模型提供方和设置页用量卡使用。</desc>
+  <title id="title">OpenAI Codex authorization and credential flow</title>
+  <desc id="desc">The browser authorizes through OpenAI OAuth, a localhost callback writes local credentials, and DSH supplies them to the model provider and settings usage card.</desc>
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
       <path d="M0 0L10 5L0 10Z" fill="#64748B"/>
@@ -8,8 +8,8 @@
   </defs>
 
   <rect width="1200" height="440" rx="26" fill="#0B0F14"/>
-  <text x="56" y="66" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="40" font-weight="750">从授权到可用凭据</text>
-  <text x="56" y="100" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="20">令牌留在 Host 侧；Web 设置页只读取状态与用量摘要。</text>
+  <text x="56" y="66" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="40" font-weight="750">From authorization to usable credentials</text>
+  <text x="56" y="100" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="20">Tokens stay on the host; Web settings read only status and usage summaries.</text>
 
   <path d="M278 230H326" stroke="#64748B" stroke-width="3" marker-end="url(#arrow)"/>
   <path d="M560 230H608" stroke="#64748B" stroke-width="3" marker-end="url(#arrow)"/>
@@ -19,7 +19,7 @@
     <rect width="222" height="190" rx="18" fill="#111821" stroke="#234A78" stroke-width="2"/>
     <text x="22" y="36" fill="#93C5FD" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="700">01 · BROWSER</text>
     <text x="22" y="82" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="24" font-weight="700">OpenAI OAuth</text>
-    <text x="22" y="118" fill="#CBD5E1" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="19">官方授权页</text>
+    <text x="22" y="118" fill="#CBD5E1" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="19">Official authorization</text>
     <rect x="22" y="143" width="132" height="28" rx="14" fill="#111F33"/>
     <text x="38" y="163" fill="#93C5FD" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16">PKCE + STATE</text>
   </g>
@@ -27,16 +27,16 @@
   <g id="callback" transform="translate(326 138)">
     <rect width="234" height="190" rx="18" fill="#111821" stroke="#1F6F5A" stroke-width="2"/>
     <text x="22" y="36" fill="#6EE7B7" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="700">02 · LOOPBACK</text>
-    <text x="22" y="82" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="24" font-weight="700">本机回调</text>
+    <text x="22" y="82" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="24" font-weight="700">Local callback</text>
     <text x="22" y="118" fill="#CBD5E1" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19">localhost:1455</text>
-    <text x="22" y="158" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="18">校验并交换令牌</text>
+    <text x="22" y="158" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18">Validate and exchange</text>
   </g>
 
   <g id="host" transform="translate(608 138)">
     <rect width="234" height="190" rx="18" fill="#111821" stroke="#1F6F5A" stroke-width="2"/>
     <text x="22" y="36" fill="#6EE7B7" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="700">03 · HOST</text>
-    <text x="22" y="82" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="24" font-weight="700">本地凭据</text>
-    <text x="22" y="118" fill="#CBD5E1" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="19">原子写入 · 自动刷新</text>
+    <text x="22" y="82" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="24" font-weight="700">Local credentials</text>
+    <text x="22" y="118" fill="#CBD5E1" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="19">Atomic write · auto-refresh</text>
     <rect x="22" y="143" width="126" height="28" rx="14" fill="#102A24"/>
     <text x="38" y="163" fill="#6EE7B7" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16">OWNER ONLY</text>
   </g>
@@ -44,9 +44,9 @@
   <g id="dsh" transform="translate(890 138)">
     <rect width="254" height="190" rx="18" fill="#111821" stroke="#334155" stroke-width="2"/>
     <text x="22" y="36" fill="#CBD5E1" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="700">04 · DSH</text>
-    <text x="22" y="82" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="24" font-weight="700">模型 + 用量</text>
+    <text x="22" y="82" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="24" font-weight="700">Model + usage</text>
     <text x="22" y="118" fill="#CBD5E1" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18">openai-codex</text>
-    <text x="22" y="153" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="18">设置页状态与额度</text>
+    <text x="22" y="153" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18">Settings status + limits</text>
   </g>
 
   <path d="M326 366H842" stroke="#1F6F5A" stroke-width="2"/>

@@ -54,13 +54,13 @@ window.__ModuleLoader__.load({
     }
 
     function formatReset(seconds) {
-      if (!Number.isFinite(seconds)) return '重置时间未知'
+      if (!Number.isFinite(seconds)) return 'Reset time unavailable'
       const date = new Date(seconds * 1000)
       const remaining = date.getTime() - Date.now()
-      if (remaining <= 0) return '即将重置'
+      if (remaining <= 0) return 'Resetting soon'
       const hours = Math.floor(remaining / 3600000)
       const minutes = Math.max(1, Math.floor((remaining % 3600000) / 60000))
-      const relative = hours >= 24 ? Math.floor(hours / 24) + ' 天后' : hours > 0 ? hours + ' 小时 ' + minutes + ' 分后' : minutes + ' 分后'
+      const relative = hours >= 24 ? 'in ' + Math.floor(hours / 24) + ' days' : hours > 0 ? 'in ' + hours + ' hr ' + minutes + ' min' : 'in ' + minutes + ' min'
       return relative + ' · ' + date.toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     }
 
@@ -69,7 +69,7 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'codexUsage' },
         h('div', { className: 'codexUsageHead' },
           h('span', { className: 'codexUsageName' }, props.name),
-          h('span', { className: 'codexUsageValue' }, '已用 ' + Math.round(used) + '% · 剩余 ' + Math.max(0, Math.round(100 - used)) + '%'),
+          h('span', { className: 'codexUsageValue' }, Math.round(used) + '% used · ' + Math.max(0, Math.round(100 - used)) + '% left'),
         ),
         h('div', { className: 'codexBar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': used },
           h('div', { className: 'codexBarFill' + (used >= 80 ? ' high' : ''), style: { width: used + '%' } }),
@@ -93,7 +93,7 @@ window.__ModuleLoader__.load({
           setError('')
           if (value.loggedIn) setWatchLogin(false)
         } catch (loadError) {
-          setError('无法连接本机 Codex 插件服务。请重启 DSH Web profile 后再试。' + (messageOf(loadError) ? ' (' + messageOf(loadError) + ')' : ''))
+          setError('Could not connect to the local Codex plugin service. Restart the DSH Web profile and try again.' + (messageOf(loadError) ? ' (' + messageOf(loadError) + ')' : ''))
         }
       }, [])
 
@@ -105,7 +105,7 @@ window.__ModuleLoader__.load({
 
       const login = () => {
         const popup = window.open(BASE + '/start', 'dsh-openai-codex-login', 'popup,width=560,height=760')
-        if (popup === null) setError('浏览器阻止了登录窗口，请允许此站点打开弹窗。')
+        if (popup === null) setError('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.')
         setWatchLogin(true)
         window.setTimeout(() => { void load(false) }, 1000)
       }
@@ -132,54 +132,54 @@ window.__ModuleLoader__.load({
       const loading = status === null && !error
       const connected = Boolean(status && status.loggedIn)
       const pending = Boolean(status && status.loginPending) || watchLogin
-      const plan = usage && usage.planType ? String(usage.planType).toUpperCase() : 'ChatGPT 订阅'
+      const plan = usage && usage.planType ? String(usage.planType).toUpperCase() : 'ChatGPT subscription'
       const windows = useMemo(() => {
         if (!usage) return []
         const rows = []
-        if (usage.primary) rows.push({ name: usage.primary.windowSeconds === 18000 ? '5 小时额度' : '短周期额度', window: usage.primary })
-        if (usage.secondary) rows.push({ name: '周额度', window: usage.secondary })
+        if (usage.primary) rows.push({ name: usage.primary.windowSeconds === 18000 ? '5-hour limit' : 'Short-window limit', window: usage.primary })
+        if (usage.secondary) rows.push({ name: 'Weekly limit', window: usage.secondary })
         return rows
       }, [usage])
 
       return h('section', { className: 'codexSection' },
         h('h2', { className: 'codexTitle' }, 'OpenAI Codex'),
-        h('p', { className: 'codexIntro' }, '使用 ChatGPT Plus、Pro、Team 或 Enterprise 订阅登录，并在这里查看 Codex 额度。登录结果自动用于“模型提供方”中的 openai-codex。'),
+        h('p', { className: 'codexIntro' }, 'Sign in with a ChatGPT Plus, Pro, Team, or Enterprise subscription and view Codex usage here. The openai-codex model provider uses the resulting credentials automatically.'),
         h('div', { className: 'codexCard' },
           h('div', { className: 'codexHero' },
             h('div', { className: 'codexBrand' },
               h('div', { className: 'codexLogo', 'aria-hidden': true }, 'OA'),
               h('div', null,
-                h('h3', { className: 'codexName' }, 'OpenAI Codex 订阅'),
-                h('p', { className: 'codexMeta', title: connected ? status.accountId : '' }, loading ? '正在读取 OpenAI 登录状态' : connected ? shortAccount(status.accountId) : '尚未连接 ChatGPT 账号'),
+                h('h3', { className: 'codexName' }, 'OpenAI Codex subscription'),
+                h('p', { className: 'codexMeta', title: connected ? status.accountId : '' }, loading ? 'Checking OpenAI sign-in status' : connected ? shortAccount(status.accountId) : 'No ChatGPT account connected'),
               ),
             ),
             h('span', { className: 'codexBadge ' + (connected ? 'connected' : loading || pending ? 'pending' : '') },
-              h('span', { className: 'codexDot', 'aria-hidden': true }), loading ? '刷新中…' : connected ? '已连接' : pending ? '等待登录' : '未登录',
+              h('span', { className: 'codexDot', 'aria-hidden': true }), loading ? 'Refreshing…' : connected ? 'Connected' : pending ? 'Waiting for sign-in' : 'Signed out',
             ),
           ),
           h('div', { className: 'codexBody' },
             status === null && !error
-              ? h('div', { 'aria-label': '加载中' }, h('div', { className: 'codexSkeleton' }), h('div', { className: 'codexSkeleton', style: { width: '72%' } }))
+              ? h('div', { 'aria-label': 'Loading' }, h('div', { className: 'codexSkeleton' }), h('div', { className: 'codexSkeleton', style: { width: '72%' } }))
               : connected
                 ? h(React.Fragment, null,
-                    h('div', { className: 'codexPlan' }, h('strong', null, plan), h('span', null, usage && usage.fetchedAt ? '更新于 ' + new Date(usage.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '额度信息待更新')),
+                    h('div', { className: 'codexPlan' }, h('strong', null, plan), h('span', null, usage && usage.fetchedAt ? 'Updated ' + new Date(usage.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Usage data pending')),
                     windows.length > 0
                       ? h('div', { className: 'codexGrid' }, windows.map((row) => h(UsageCard, { key: row.name, name: row.name, window: row.window })))
-                      : h('p', { className: 'codexEmpty' }, '账号已连接，暂时没有返回可展示的额度窗口。'),
-                    usage && Number.isFinite(usage.resetCredits) ? h('p', { className: 'codexNotice' }, '可用额度重置次数：' + usage.resetCredits) : null,
-                    status.usageError ? h('p', { className: 'codexError', role: 'status' }, '额度读取失败：' + status.usageError) : null,
+                      : h('p', { className: 'codexEmpty' }, 'The account is connected, but no displayable usage window is currently available.'),
+                    usage && Number.isFinite(usage.resetCredits) ? h('p', { className: 'codexNotice' }, 'Available limit resets: ' + usage.resetCredits) : null,
+                    status.usageError ? h('p', { className: 'codexError', role: 'status' }, 'Could not load usage: ' + status.usageError) : null,
                   )
-                : h('p', { className: 'codexEmpty' }, '点击登录会打开 OpenAI 官方授权页。插件仅在 Host 侧保存和刷新令牌，Web 页面不会读取令牌。'),
-            status && status.loginError ? h('p', { className: 'codexError', role: 'alert' }, '登录失败：' + status.loginError) : null,
+                : h('p', { className: 'codexEmpty' }, 'Signing in opens OpenAI\'s authorization page. The plugin stores and refreshes tokens only on the host; the web page never receives them.'),
+            status && status.loginError ? h('p', { className: 'codexError', role: 'alert' }, 'Sign-in failed: ' + status.loginError) : null,
             error ? h('p', { className: 'codexError', role: 'alert' }, error) : null,
             h('div', { className: 'codexActions' },
-              h('button', { type: 'button', className: 'codexButton primary', disabled: busy || pending || loading, onClick: login }, loading ? '读取状态…' : connected ? '重新登录' : pending ? '等待授权…' : '登录 OpenAI'),
-              connected ? h('button', { type: 'button', className: 'codexButton', disabled: busy, onClick: refresh }, busy ? '刷新中…' : '刷新用量') : null,
-              connected ? h('button', { type: 'button', className: 'codexButton danger', disabled: busy, onClick: () => { void logout() } }, '退出登录') : null,
+              h('button', { type: 'button', className: 'codexButton primary', disabled: busy || pending || loading, onClick: login }, loading ? 'Checking status…' : connected ? 'Sign in again' : pending ? 'Waiting for authorization…' : 'Sign in with OpenAI'),
+              connected ? h('button', { type: 'button', className: 'codexButton', disabled: busy, onClick: refresh }, busy ? 'Refreshing…' : 'Refresh usage') : null,
+              connected ? h('button', { type: 'button', className: 'codexButton danger', disabled: busy, onClick: () => { void logout() } }, 'Sign out') : null,
             ),
           ),
         ),
-        h('p', { className: 'codexNotice' }, '此页面通过 127.0.0.1 本机桥接服务工作；远程打开 DSH Web 时不会暴露认证接口。'),
+        h('p', { className: 'codexNotice' }, 'This page uses a loopback bridge at 127.0.0.1; opening DSH Web remotely does not expose the authentication API.'),
       )
     }
 

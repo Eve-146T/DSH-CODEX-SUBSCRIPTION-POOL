@@ -13,7 +13,7 @@
   <g id="title-block" transform="translate(64 88)">
     <text x="0" y="64" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="58" font-weight="750">dsh-openai</text>
     <text x="0" y="126" fill="#F8FAFC" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="58" font-weight="750">codex-auth</text>
-    <text x="2" y="176" fill="#CBD5E1" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="23">订阅登录、用量查看与本地凭据接入</text>
+    <text x="2" y="176" fill="#CBD5E1" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="23">Subscription login, usage, and local credentials</text>
 
     <g transform="translate(0 214)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" font-weight="650">
       <rect width="148" height="38" rx="19" fill="#102A24" stroke="#1F6F5A"/>
@@ -33,21 +33,21 @@
     <text x="88" y="68" fill="#94A3B8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16">CHATGPT PLUS</text>
     <rect x="326" y="29" width="86" height="34" rx="17" fill="#102A24"/>
     <circle cx="344" cy="46" r="5" fill="#34D399"/>
-    <text x="358" y="52" fill="#6EE7B7" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="17" font-weight="650">已连接</text>
+    <text x="358" y="52" fill="#6EE7B7" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="17" font-weight="650">CONNECTED</text>
 
     <path d="M24 94H412" stroke="#263241" stroke-width="2"/>
 
-    <text x="24" y="129" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="19" font-weight="650">5 小时额度</text>
+    <text x="24" y="129" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="19" font-weight="650">5-hour limit</text>
     <text x="412" y="129" text-anchor="end" fill="#94A3B8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17">42% USED</text>
     <rect x="24" y="146" width="388" height="10" rx="5" fill="#263241"/>
     <rect x="24" y="146" width="163" height="10" rx="5" fill="#34D399"/>
-    <text x="24" y="183" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="17">剩余 58% · 自动读取重置时间</text>
+    <text x="24" y="183" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="17">58% left · reset time detected automatically</text>
 
-    <text x="24" y="224" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="19" font-weight="650">周额度</text>
+    <text x="24" y="224" fill="#E2E8F0" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="19" font-weight="650">Weekly limit</text>
     <text x="412" y="224" text-anchor="end" fill="#94A3B8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17">73% USED</text>
     <rect x="24" y="241" width="388" height="10" rx="5" fill="#263241"/>
     <rect x="24" y="241" width="283" height="10" rx="5" fill="#60A5FA"/>
-    <text x="24" y="278" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="17">剩余 27% · 凭据仅保存在 Host 侧</text>
+    <text x="24" y="278" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="17">27% left · credentials stay on the host</text>
   </g>
 
   <path d="M650 108V344" stroke="#263241" stroke-width="2" stroke-dasharray="7 9"/>

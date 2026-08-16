@@ -5,10 +5,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yoke233/dsh-openai-codex-auth.git"
+    "url": "git+https://github.com/muxu9/dsh-openai-codex-auth.git"
   },
-  "homepage": "https://github.com/yoke233/dsh-openai-codex-auth#readme",
-  "bugs": "https://github.com/yoke233/dsh-openai-codex-auth/issues",
+  "homepage": "https://github.com/muxu9/dsh-openai-codex-auth#readme",
+  "bugs": "https://github.com/muxu9/dsh-openai-codex-auth/issues",
   "keywords": ["deepseek-harness", "dsh-plugin", "openai", "codex", "oauth"],
   "type": "module",
   "main": "lib/index.js",
