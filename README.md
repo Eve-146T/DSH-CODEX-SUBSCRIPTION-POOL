@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="DeepSeek Harness plugin for OpenAI Codex login, image generation, and web search">
+  <img src="./assets/readme/accounts-demo.png" width="100%" alt="DeepSeek Harness OpenAI Codex settings showing four pooled accounts, weekly usage, account controls, and privacy settings">
 </p>
 
 # OpenAI Codex Plugin for DeepSeek Harness
@@ -19,10 +19,6 @@ It also:
 
 This is an independent community plugin. It is not made or endorsed by OpenAI
 or DeepSeek.
-
-<p align="center">
-  <img src="./assets/readme/accounts-demo.png" width="100%" alt="DeepSeek Harness OpenAI Codex settings showing four pooled accounts, weekly usage, account controls, and privacy settings">
-</p>
 
 ## Install the DeepSeek Harness Codex plugin
 
