@@ -18,6 +18,12 @@ export interface Config {
     preferencesPath?: string;
     dshHome?: string;
 }
+interface CredentialDocumentV2 {
+    version: 2;
+    activeAccountId: string;
+    accounts: OpenAICodexCredential[];
+}
+type CredentialDocument = CredentialDocumentV2;
 interface UsageWindow {
     usedPercent: number;
     windowSeconds?: number;
@@ -57,6 +63,8 @@ export interface DeviceAuthorization {
     intervalMs: number;
     expiresInMs: number;
 }
+/** Parse both the original one-account file and the current multi-account file. */
+export declare function parseCredentialDocument(text: string, filename: string): CredentialDocument;
 /** Strictly validate a stored or submitted service-tier choice. */
 export declare function parseServiceTierSelection(value: unknown): ServiceTierSelection;
 /** Map UI language to the value expected by OpenAI's Responses API. */
@@ -82,13 +90,13 @@ export declare class OpenAICodexAuth extends Service {
     private readonly filename;
     private readonly preferencesFilename;
     private readonly csrf;
-    private usageCache;
-    private usageError;
+    private readonly usageCache;
+    private readonly usageErrors;
     private loginFlow;
     private lastLoginError;
     constructor(ctx: Context, config: Config);
     /** Return a valid credential, refreshing and persisting it when near expiry. */
-    credential(signal?: AbortSignal): Promise<OpenAICodexCredential | undefined>;
+    credential(signal?: AbortSignal, requestedAccountId?: string): Promise<OpenAICodexCredential | undefined>;
     /** Return a valid bearer token for DSH's built-in Codex provider. */
     bearerToken(signal?: AbortSignal): Promise<string | undefined>;
     /** Send one authenticated streaming request to the ChatGPT Codex Responses endpoint. */
@@ -96,6 +104,7 @@ export declare class OpenAICodexAuth extends Service {
     private createLoginRequest;
     private finishLogin;
     private logout;
+    private activate;
     private beginBrowserLogin;
     /** Begin OpenAI's device-code flow for SSH and other headless environments. */
     private beginDeviceLogin;

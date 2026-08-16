@@ -46,7 +46,13 @@ export interface OpenAICodexCredential {
 /** Plugin configuration. */
 export interface Config { path?: string; preferencesPath?: string; dshHome?: string }
 
-interface CredentialDocument { version: 1; credential: OpenAICodexCredential }
+interface CredentialDocumentV1 { version: 1; credential: OpenAICodexCredential }
+interface CredentialDocumentV2 {
+  version: 2
+  activeAccountId: string
+  accounts: OpenAICodexCredential[]
+}
+type CredentialDocument = CredentialDocumentV2
 interface PreferencesDocument { version: 1; serviceTier: ServiceTierSelection }
 
 interface UsageWindow {
@@ -92,26 +98,64 @@ function base64Url(value: Buffer): string {
   return value.toString('base64url')
 }
 
-function accountId(access: string): string {
+function tokenPayload(access: string): Record<string, unknown> {
   const parts = access.split('.')
   if (parts.length !== 3) throw new Error('OpenAI returned an invalid access token')
-  const payload = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString('utf8')) as {
-    'https://api.openai.com/auth'?: { chatgpt_account_id?: unknown }
-  }
-  const id = payload['https://api.openai.com/auth']?.chatgpt_account_id
+  const payload = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString('utf8')) as unknown
+  if (payload === null || typeof payload !== 'object') throw new Error('OpenAI returned an invalid access token')
+  return payload as Record<string, unknown>
+}
+
+function accountId(access: string): string {
+  const auth = tokenPayload(access)['https://api.openai.com/auth']
+  const id = auth !== null && typeof auth === 'object'
+    ? (auth as Record<string, unknown>).chatgpt_account_id
+    : undefined
   if (typeof id !== 'string' || id.length === 0) throw new Error('OpenAI token has no ChatGPT account id')
   return id
 }
 
-function parseCredential(text: string, filename: string): OpenAICodexCredential {
-  const value = JSON.parse(text) as Partial<CredentialDocument>
-  const credential = value.credential
-  if (value.version !== 1 || credential === undefined
-    || typeof credential.access !== 'string' || typeof credential.refresh !== 'string'
-    || typeof credential.expires !== 'number' || typeof credential.accountId !== 'string') {
+function accountProfile(access: string): { email?: string; name?: string } {
+  try {
+    const raw = tokenPayload(access)['https://api.openai.com/profile']
+    if (raw === null || typeof raw !== 'object') return {}
+    const profile = raw as Record<string, unknown>
+    const email = typeof profile.email === 'string' && profile.email.length <= 320 && !/[\r\n]/u.test(profile.email)
+      ? profile.email
+      : undefined
+    const name = typeof profile.name === 'string' && profile.name.length <= 200 && !/[\r\n]/u.test(profile.name)
+      ? profile.name
+      : undefined
+    return {
+      ...email === undefined ? {} : { email },
+      ...name === undefined ? {} : { name },
+    }
+  } catch { return {} }
+}
+
+function isCredential(value: unknown): value is OpenAICodexCredential {
+  if (value === null || typeof value !== 'object') return false
+  const credential = value as Partial<OpenAICodexCredential>
+  return typeof credential.access === 'string' && typeof credential.refresh === 'string'
+    && typeof credential.expires === 'number' && Number.isFinite(credential.expires)
+    && typeof credential.accountId === 'string' && credential.accountId.length > 0
+}
+
+/** Parse both the original one-account file and the current multi-account file. */
+export function parseCredentialDocument(text: string, filename: string): CredentialDocument {
+  const value = JSON.parse(text) as Record<string, unknown>
+  if (value.version === 1 && isCredential(value.credential)) {
+    return { version: 2, activeAccountId: value.credential.accountId, accounts: [value.credential] }
+  }
+  if (value.version === 2 && typeof value.activeAccountId === 'string' && Array.isArray(value.accounts)
+    && value.accounts.length > 0 && value.accounts.every(isCredential)
+    && value.accounts.some(credential => credential.accountId === value.activeAccountId)
+    && new Set(value.accounts.map(credential => credential.accountId)).size === value.accounts.length) {
+    return { version: 2, activeAccountId: value.activeAccountId, accounts: value.accounts }
+  }
+  {
     throw new Error(`openai-codex-auth: invalid credential document ${filename}`)
   }
-  return credential
 }
 
 /** Strictly validate a stored or submitted service-tier choice. */
@@ -154,9 +198,9 @@ async function readControlJson(request: IncomingMessage): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
 }
 
-async function readCredential(filename: string): Promise<OpenAICodexCredential | undefined> {
+async function readCredentialDocument(filename: string): Promise<CredentialDocument | undefined> {
   try {
-    return parseCredential(await readFile(filename, 'utf8'), filename)
+    return parseCredentialDocument(await readFile(filename, 'utf8'), filename)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
     throw error
@@ -380,8 +424,8 @@ export class OpenAICodexAuth extends Service {
   private readonly filename: string
   private readonly preferencesFilename: string
   private readonly csrf = base64Url(randomBytes(24))
-  private usageCache: UsageSummary | undefined
-  private usageError: string | undefined
+  private readonly usageCache = new Map<string, UsageSummary>()
+  private readonly usageErrors = new Map<string, string>()
   private loginFlow: LoginFlow | undefined
   private lastLoginError: string | undefined
 
@@ -408,16 +452,24 @@ export class OpenAICodexAuth extends Service {
   }
 
   /** Return a valid credential, refreshing and persisting it when near expiry. */
-  async credential(signal?: AbortSignal): Promise<OpenAICodexCredential | undefined> {
+  async credential(signal?: AbortSignal, requestedAccountId?: string): Promise<OpenAICodexCredential | undefined> {
     return withFileLock(this.filename, async () => {
-      const current = await readCredential(this.filename)
+      const document = await readCredentialDocument(this.filename)
+      if (document === undefined) return undefined
+      const selectedAccountId = requestedAccountId ?? document.activeAccountId
+      const current = document.accounts.find(account => account.accountId === selectedAccountId)
       if (current === undefined) return undefined
       if (current.expires > Date.now() + 60_000) return current
       const next = await tokenRequest(new URLSearchParams({
         grant_type: 'refresh_token', refresh_token: current.refresh, client_id: CLIENT_ID,
       }), signal)
-      await this.write(next)
-      await this.ctx.credentials.set(TOKEN_REF, next.access)
+      const nextDocument: CredentialDocument = {
+        ...document,
+        activeAccountId: document.activeAccountId === current.accountId ? next.accountId : document.activeAccountId,
+        accounts: document.accounts.map(account => account.accountId === current.accountId ? next : account),
+      }
+      await this.write(nextDocument)
+      if (nextDocument.activeAccountId === next.accountId) await this.ctx.credentials.set(TOKEN_REF, next.access)
       return next
     })
   }
@@ -445,7 +497,7 @@ export class OpenAICodexAuth extends Service {
         'content-type': 'application/json',
         'openai-beta': 'responses=experimental',
         originator: 'deepseek-harness',
-        'user-agent': 'deepseek-harness-openai-codex-auth/0.4',
+        'user-agent': 'deepseek-harness-openai-codex-auth/0.5',
       },
       body: JSON.stringify(body),
       ...signal === undefined ? {} : { signal },
@@ -457,7 +509,7 @@ export class OpenAICodexAuth extends Service {
     return readSseEvents(response, maxBytes, operation)
   }
 
-  private createLoginRequest(signal: AbortSignal): { url: string; code: Promise<string>; verifier: string } {
+  private createLoginRequest(signal: AbortSignal, addAnother: boolean): { url: string; code: Promise<string>; verifier: string } {
     const verifier = base64Url(randomBytes(32))
     const challenge = base64Url(createHash('sha256').update(verifier).digest())
     const state = randomBytes(16).toString('hex')
@@ -468,6 +520,7 @@ export class OpenAICodexAuth extends Service {
       code_challenge_method: 'S256', state, id_token_add_organizations: 'true',
       codex_cli_simplified_flow: 'true', originator: 'deepseek-harness',
     })) url.searchParams.set(key, value)
+    if (addAnother) url.searchParams.set('prompt', 'login')
     return { url: url.toString(), code: this.waitForCallback(state, signal), verifier }
   }
 
@@ -481,28 +534,60 @@ export class OpenAICodexAuth extends Service {
       grant_type: 'authorization_code', client_id: CLIENT_ID, code: authorizationCode,
       code_verifier: verifier, redirect_uri: redirectUri,
     }), signal)
-    await withFileLock(this.filename, () => this.write(credential))
-    await this.ctx.credentials.set(TOKEN_REF, credential.access)
-    this.usageCache = undefined
-    this.usageError = undefined
-  }
-
-
-  private async logout(): Promise<void> {
     await withFileLock(this.filename, async () => {
-      try { await unlink(this.filename) } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      }
+      const document = await readCredentialDocument(this.filename)
+      const accounts = document?.accounts.filter(account => account.accountId !== credential.accountId) ?? []
+      accounts.push(credential)
+      await this.write({ version: 2, activeAccountId: credential.accountId, accounts })
     })
-    await this.ctx.credentials.unset(TOKEN_REF)
-    this.usageCache = undefined
-    this.usageError = undefined
+    await this.ctx.credentials.set(TOKEN_REF, credential.access)
+    this.usageCache.delete(credential.accountId)
+    this.usageErrors.delete(credential.accountId)
   }
 
-  private beginBrowserLogin(): LoginFlow {
+  private async logout(accountId: string): Promise<void> {
+    let nextActive: OpenAICodexCredential | undefined
+    await withFileLock(this.filename, async () => {
+      const document = await readCredentialDocument(this.filename)
+      if (document === undefined) return
+      if (!document.accounts.some(account => account.accountId === accountId)) {
+        throw new Error('OpenAI account was not found.')
+      }
+      const accounts = document.accounts.filter(account => account.accountId !== accountId)
+      if (accounts.length === 0) {
+        try { await unlink(this.filename) } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        }
+        return
+      }
+      const activeAccountId = document.activeAccountId === accountId
+        ? accounts[0]!.accountId
+        : document.activeAccountId
+      nextActive = accounts.find(account => account.accountId === activeAccountId) ?? accounts[0]
+      await this.write({ version: 2, activeAccountId: nextActive!.accountId, accounts })
+    })
+    if (nextActive === undefined) await this.ctx.credentials.unset(TOKEN_REF)
+    else await this.ctx.credentials.set(TOKEN_REF, nextActive.access)
+    this.usageCache.delete(accountId)
+    this.usageErrors.delete(accountId)
+  }
+
+  private async activate(accountId: string): Promise<void> {
+    const active = await withFileLock(this.filename, async () => {
+      const document = await readCredentialDocument(this.filename)
+      const account = document?.accounts.find(candidate => candidate.accountId === accountId)
+      if (document === undefined || account === undefined) throw new Error('OpenAI account was not found.')
+      await this.write({ ...document, activeAccountId: accountId })
+      return account
+    })
+    const current = await this.credential(undefined, accountId) ?? active
+    await this.ctx.credentials.set(TOKEN_REF, current.access)
+  }
+
+  private beginBrowserLogin(addAnother: boolean): LoginFlow {
     if (this.loginFlow !== undefined) return this.loginFlow
     const abort = new AbortController()
-    const { url, code, verifier } = this.createLoginRequest(abort.signal)
+    const { url, code, verifier } = this.createLoginRequest(abort.signal, addAnother)
     this.lastLoginError = undefined
     const completion = code
       .then(authorizationCode => this.finishLogin(authorizationCode, verifier, abort.signal))
@@ -521,13 +606,10 @@ export class OpenAICodexAuth extends Service {
       }
       throw new Error('Another OpenAI sign-in is already in progress.')
     }
-    if (await readCredential(this.filename) !== undefined) {
-      throw new Error('OpenAI is already connected. Sign out before starting another sign-in.')
-    }
     const abort = new AbortController()
     const initiation = await fetch(DEVICE_CODE_URL, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'user-agent': 'deepseek-harness-openai-codex-auth/0.4' },
+      headers: { 'content-type': 'application/json', 'user-agent': 'deepseek-harness-openai-codex-auth/0.5' },
       body: JSON.stringify({ client_id: CLIENT_ID }),
       signal: abort.signal,
     })
@@ -540,7 +622,7 @@ export class OpenAICodexAuth extends Service {
         if (Date.now() >= deadline) throw new Error('OpenAI device sign-in expired. Start it again.')
         const poll = await fetch(DEVICE_TOKEN_URL, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', 'user-agent': 'deepseek-harness-openai-codex-auth/0.4' },
+          headers: { 'content-type': 'application/json', 'user-agent': 'deepseek-harness-openai-codex-auth/0.5' },
           body: JSON.stringify({ device_auth_id: deviceAuthId, user_code: userCode }),
           signal: abort.signal,
         })
@@ -579,48 +661,51 @@ export class OpenAICodexAuth extends Service {
       requestValue: serviceTierRequestValue(preferences.serviceTier),
       forwardingSupported: false,
     }
-    let credential = await readCredential(this.filename)
-    if (credential === undefined) {
+    let document = await readCredentialDocument(this.filename)
+    if (document === undefined) {
       return {
         loggedIn: false, loginPending: this.loginFlow !== undefined, loginError: this.lastLoginError,
         serviceTier, csrf: this.csrf,
       }
     }
-    try {
-      await this.bearerToken()
-      credential = await readCredential(this.filename) ?? credential
-    } catch (error) {
-      this.usageError = error instanceof Error ? error.message : String(error)
-    }
-    if (refresh || this.usageCache === undefined || Date.now() - this.usageCache.fetchedAt > USAGE_CACHE_MS) {
+    await Promise.all(document.accounts.map(async account => {
       try {
-        this.usageCache = await this.fetchUsage(credential)
-        this.usageError = undefined
+        const current = await this.credential(undefined, account.accountId)
+        if (current === undefined) return
+        const cached = this.usageCache.get(account.accountId)
+        if (refresh || cached === undefined || Date.now() - cached.fetchedAt > USAGE_CACHE_MS) {
+          this.usageCache.set(account.accountId, await this.fetchUsage(current))
+        }
+        this.usageErrors.delete(account.accountId)
       } catch (error) {
-        this.usageError = error instanceof Error ? error.message : String(error)
+        this.usageErrors.set(account.accountId, error instanceof Error ? error.message : String(error))
       }
-    }
+    }))
+    document = await readCredentialDocument(this.filename) ?? document
     return {
       loggedIn: true,
       loginPending: this.loginFlow !== undefined,
-      accountId: credential.accountId,
-      expiresAt: credential.expires,
-      usage: this.usageCache,
-      usageError: this.usageError,
+      activeAccountId: document.activeAccountId,
+      accounts: document.accounts.map(account => ({
+        ...accountProfile(account.access),
+        accountId: account.accountId,
+        active: account.accountId === document!.activeAccountId,
+        expiresAt: account.expires,
+        usage: this.usageCache.get(account.accountId),
+        usageError: this.usageErrors.get(account.accountId),
+      })),
       serviceTier,
       csrf: this.csrf,
     }
   }
 
   private async fetchUsage(credential: OpenAICodexCredential): Promise<UsageSummary> {
-    const access = await this.bearerToken()
-    if (access === undefined) throw new Error('OpenAI login is missing')
     const response = await fetch(USAGE_URL, {
       headers: {
         accept: 'application/json',
-        authorization: `Bearer ${access}`,
+        authorization: `Bearer ${credential.access}`,
         'chatgpt-account-id': credential.accountId,
-        'user-agent': 'dsh-openai-codex-auth/0.2',
+        'user-agent': 'dsh-openai-codex-auth/0.5',
       },
     })
     if (!response.ok) throw new Error(`Codex usage request failed (HTTP ${response.status})`)
@@ -679,7 +764,7 @@ export class OpenAICodexAuth extends Service {
         return
       }
       if (url.pathname === '/start' && request.method === 'GET') {
-        const flow = this.beginBrowserLogin()
+        const flow = this.beginBrowserLogin(url.searchParams.get('add') === '1')
         response.writeHead(302, { location: flow.url, 'cache-control': 'no-store' }).end()
         return
       }
@@ -697,9 +782,26 @@ export class OpenAICodexAuth extends Service {
         send(200, await this.status(url.searchParams.get('refresh') === '1'))
         return
       }
-      if (url.pathname === '/logout' && request.method === 'POST') {
+      if ((url.pathname === '/accounts/remove' || url.pathname === '/accounts/activate') && request.method === 'POST') {
         if (request.headers['x-dsh-csrf'] !== this.csrf) { send(403, { error: 'Invalid CSRF token.' }); return }
-        await this.logout()
+        if (!String(request.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) {
+          send(415, { error: 'Content-Type must be application/json.' })
+          return
+        }
+        let body: unknown
+        try { body = await readControlJson(request) } catch (error) {
+          send(400, { error: error instanceof Error ? error.message : String(error) })
+          return
+        }
+        const accountId = body !== null && typeof body === 'object'
+          ? (body as Record<string, unknown>).accountId
+          : undefined
+        if (typeof accountId !== 'string' || accountId.length === 0) {
+          send(400, { error: 'accountId must be a non-empty string.' })
+          return
+        }
+        if (url.pathname === '/accounts/remove') await this.logout(accountId)
+        else await this.activate(accountId)
         send(200, { ok: true })
         return
       }
@@ -734,8 +836,8 @@ export class OpenAICodexAuth extends Service {
     }
   }
 
-  private write(credential: OpenAICodexCredential): Promise<void> {
-    return writeFileAtomic(this.filename, `${JSON.stringify({ version: 1, credential }, null, 2)}\n`, {
+  private write(document: CredentialDocument): Promise<void> {
+    return writeFileAtomic(this.filename, `${JSON.stringify(document, null, 2)}\n`, {
       mode: 0o600, dirMode: 0o700,
     })
   }

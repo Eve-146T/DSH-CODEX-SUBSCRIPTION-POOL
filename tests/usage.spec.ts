@@ -3,9 +3,48 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
   normalizeUsage,
+  parseCredentialDocument,
   parseServiceTierSelection,
   serviceTierRequestValue,
 } from '../src/index.ts'
+
+const credential = {
+  access: 'access-token',
+  refresh: 'refresh-token',
+  expires: 123456,
+  accountId: 'account-one',
+}
+
+describe('multi-account credentials', () => {
+  it('migrates the original single-account document without losing the active account', () => {
+    expect(parseCredentialDocument(JSON.stringify({ version: 1, credential }), 'credentials.json')).toEqual({
+      version: 2,
+      activeAccountId: 'account-one',
+      accounts: [credential],
+    })
+  })
+
+  it('accepts a unique account pool and rejects an invalid active account', () => {
+    const second = { ...credential, accountId: 'account-two' }
+    expect(parseCredentialDocument(JSON.stringify({
+      version: 2,
+      activeAccountId: 'account-two',
+      accounts: [credential, second],
+    }), 'credentials.json').accounts).toHaveLength(2)
+    expect(() => parseCredentialDocument(JSON.stringify({
+      version: 2,
+      activeAccountId: 'missing',
+      accounts: [credential],
+    }), 'credentials.json')).toThrow('invalid credential document')
+  })
+
+  it('exposes explicit account activation and removal control routes', () => {
+    const source = readFileSync(fileURLToPath(new URL('../src/index.ts', import.meta.url)), 'utf8')
+    expect(source).toContain("url.pathname === '/accounts/remove'")
+    expect(source).toContain("url.pathname === '/accounts/activate'")
+    expect(source).toContain("url.searchParams.get('add') === '1'")
+  })
+})
 
 describe('normalizeUsage', () => {
   it('projects the Codex rate-limit response used by the settings card', () => {
@@ -60,6 +99,12 @@ describe('settings UI integration', () => {
     expect(client).toContain('useState(() => cachedStatus)')
     expect(client).toContain("className: 'codexConnectedDot'")
     expect(client).toContain("variant: 'outline', size: 'md'")
+    expect(client).toContain("'Add another account'")
+    expect(client).toContain("'Activate account'")
+    expect(client).toContain("'/accounts/' + action")
+    expect(client).toContain("className: 'codexAccountIdentity'")
+    expect(client).toContain('.codexAccountMeta{display:flex;align-items:center')
+    expect(client).toContain('align-items:center!important;justify-content:center!important')
     expect(client).not.toContain('This page uses a loopback bridge')
     expect(client).not.toContain('Service tier: provider default')
     expect(client).not.toContain('This plugin does not show a switch')

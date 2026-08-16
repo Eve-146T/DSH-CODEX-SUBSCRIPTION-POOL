@@ -6,7 +6,7 @@ window.__ModuleLoader__.load({
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })
 
     const React = require('react')
-    const { createElement: h, useCallback, useEffect, useMemo, useRef, useState } = React
+    const { createElement: h, useCallback, useEffect, useRef, useState } = React
     const { Button, IconRefreshOutline16 } = require('@deepseek-ai/dsh-client-ui-primitives')
     const BASE = 'http://127.0.0.1:1456'
     const PLUGIN_ID = 'dsh-openai-codex-auth'
@@ -17,20 +17,20 @@ window.__ModuleLoader__.load({
       .codexNavLogo{width:16px;height:16px;flex:none;color:inherit}
       .codexTitle{margin:0;font-size:18px;line-height:1.4;font-weight:600}
       .codexIntro{margin:6px 0 8px;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}
-      .codexAccount{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}
+      .codexAccountGroup{padding:0 0 18px;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexAccountGroup+.codexAccountGroup{padding-top:8px}.codexAccount{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}
       .codexLogo{display:grid;place-items:center;width:34px;height:34px;flex:none;color:var(--dsw-alias-label-primary)}.codexLogo svg{width:24px;height:24px}
-      .codexAccountText{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}.codexAccountTitle{font-size:14px;font-weight:400;line-height:22px}.codexAccountMeta{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexConnectedDot{box-sizing:border-box;width:8px;height:8px;display:block;flex:none;border-radius:50%;background:var(--dsw-alias-state-success-primary)}
-      .codexAccountAction{flex:none}.codexDisconnect{box-sizing:border-box!important;height:36px!important;border:1px solid var(--dsw-alias-state-error-primary)!important;border-radius:18px!important;color:var(--dsw-alias-state-error-primary)!important;background:transparent!important;padding:0 14px!important;font-size:14px!important;line-height:22px!important}.codexDisconnect:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)!important}
+      .codexAccountText{display:flex;flex:1;min-width:0;flex-direction:column;gap:1px}.codexAccountTitle{font-size:14px;font-weight:400;line-height:22px}.codexAccountIdentity{max-width:100%;overflow:hidden;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px;text-overflow:ellipsis;white-space:nowrap}.codexAccountMeta{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexConnectedDot{box-sizing:border-box;width:8px;height:8px;display:block;flex:none;border-radius:50%;background:var(--dsw-alias-state-success-primary)}
+      .codexAccountActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none}.codexAccountAction{flex:none}.codexActivate{height:38px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0 16px!important;line-height:20px!important}.codexActivate:disabled{opacity:.55}.codexDisconnect{box-sizing:border-box!important;height:38px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;border:1px solid var(--dsw-alias-state-error-primary)!important;border-radius:19px!important;color:var(--dsw-alias-state-error-primary)!important;background:transparent!important;padding:0 17px 1px!important;font-size:14px!important;line-height:20px!important}.codexDisconnect:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)!important}.codexDisconnect>span{display:inline-flex!important;align-items:center!important;justify-content:center!important;line-height:20px!important}
       .codexUsageHeader{display:flex;align-items:center;gap:8px;padding:18px 0 4px}.codexUsageHeading{flex:1;margin:0;font-size:12px;font-weight:600;line-height:18px;letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary)}
       .codexUpdated{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
       .codexRefresh{appearance:none;width:28px;height:28px;display:inline-grid;place-items:center;flex:none;padding:0;border:0;border-radius:50%;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer}.codexRefresh:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.codexRefresh:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.codexRefresh:disabled{opacity:.4;cursor:default}.codexRefresh[data-busy=true] svg{animation:codexSpin .8s linear infinite}
-      .codexLimits{display:flex;flex-direction:column}.codexLimit{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}
+      .codexLimits{display:flex;flex-direction:column}.codexLimit{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexAccountGroup .codexLimit:last-child{border-bottom:0}
       .codexLimitText{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}.codexLimitName{font-size:14px;font-weight:400;line-height:22px}.codexLimitReset{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexLimitValue{flex:none;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}.codexLimitValue.high{color:var(--dsw-alias-state-warn-label)}
       .codexCredit{margin:12px 0 0;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
       .codexError{margin:12px 0 0;color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
-      .codexEmpty{margin:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}.codexSignInActions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;align-self:flex-start}.codexDeviceButton{border-color:var(--dsw-alias-border-l2)!important}.codexDevice{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexDeviceText{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}.codexDeviceLabel{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexDeviceCode{font:600 18px/24px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em}.codexDeviceLink{color:var(--dsw-alias-state-business-primary);font-size:13px;text-decoration:none}.codexDeviceLink:hover{text-decoration:underline}.codexSkeleton{height:8px;margin:12px 0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}
+      .codexEmpty{margin:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}.codexSignInActions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;align-self:flex-start}.codexAddAccount{align-self:flex-start;margin-top:16px;height:38px!important;padding:0 16px!important}.codexDeviceButton{border-color:var(--dsw-alias-border-l2)!important}.codexDevice{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexDeviceText{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}.codexDeviceLabel{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexDeviceCode{font:600 18px/24px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em}.codexDeviceLink{color:var(--dsw-alias-state-business-primary);font-size:13px;text-decoration:none}.codexDeviceLink:hover{text-decoration:underline}.codexSkeleton{height:8px;margin:12px 0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}
       .codexImageTool{width:min(100%,680px);overflow:hidden;margin:10px 0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}.codexImageHeader{display:flex;align-items:center;gap:10px;padding:12px 14px}.codexImageMark{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:7px;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary)}.codexImageMark svg{display:block;width:18px;height:18px}.codexImageHeading{display:flex;min-width:0;flex:1;flex-direction:column}.codexImageHeading strong{font-size:13px;line-height:18px}.codexImageHeading span{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:17px}.codexImageInspect{appearance:none;padding:4px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer}.codexImagePrompt{margin:0;padding:0 14px 12px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.codexImagePreviewLink{display:block;line-height:0}.codexImagePreview{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-module-platform)}.codexImageLoading{height:180px;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}.codexImageError{margin:0;padding:10px 14px;border-top:1px solid var(--dsw-alias-state-error-secondary);color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}
-      @keyframes codexPulse{to{opacity:.4}}@keyframes codexSpin{to{transform:rotate(360deg)}}@media(max-width:620px){.codexAccount{align-items:flex-start;flex-wrap:wrap}.codexAccountAction{margin-left:46px}.codexUpdated{display:none}.codexDevice{align-items:flex-start;flex-direction:column;gap:7px}}
+      @keyframes codexPulse{to{opacity:.4}}@keyframes codexSpin{to{transform:rotate(360deg)}}@media(max-width:720px){.codexAccount{align-items:flex-start;flex-wrap:wrap}.codexAccountActions{width:100%;justify-content:flex-start;margin-left:46px}.codexUpdated{display:none}.codexDevice{align-items:flex-start;flex-direction:column;gap:7px}}@media(max-width:460px){.codexAccountActions{margin-left:0;flex-wrap:wrap}}
     `
     if (typeof document !== 'undefined' && document.querySelector('style[data-plugin="' + PLUGIN_ID + '"]') === null) {
       const style = document.createElement('style')
@@ -126,19 +126,78 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function usageRows(usage) {
+      if (!usage) return []
+      const rows = []
+      if (usage.primary) rows.push({ name: usage.primary.windowSeconds && usage.primary.windowSeconds <= 21600 ? '5-hour limit' : usage.primary.windowSeconds && usage.primary.windowSeconds >= 604800 ? 'Weekly limit' : 'Usage limit', window: usage.primary })
+      if (usage.secondary) rows.push({ name: 'Weekly limit', window: usage.secondary })
+      return rows
+    }
+
+    function AccountGroup(props) {
+      const account = props.account
+      const usage = account.usage
+      const plan = usage && usage.planType
+        ? String(usage.planType).charAt(0).toUpperCase() + String(usage.planType).slice(1).toLowerCase()
+        : ''
+      const windows = usageRows(usage)
+      return h('div', { className: 'codexAccountGroup' },
+        h('div', { className: 'codexAccount' },
+          h('div', { className: 'codexLogo' }, h(OpenAILogo)),
+          h('div', { className: 'codexAccountText' },
+            h('div', { className: 'codexAccountTitle' }, 'ChatGPT' + (plan ? ' ' + plan : '')),
+            account.email || account.name ? h('div', { className: 'codexAccountIdentity', title: account.email || account.name }, account.email || account.name) : null,
+            h('div', { className: 'codexAccountMeta' },
+              h('span', { className: 'codexConnectedDot', 'aria-hidden': true }),
+              h('span', null, 'Connected'),
+            ),
+          ),
+          h('div', { className: 'codexAccountActions' },
+            h(Button, {
+              className: 'codexAccountAction codexActivate', variant: 'outline', size: 'md',
+              disabled: props.busy || account.active,
+              onClick: () => { void props.activate(account.accountId) },
+            }, account.active ? 'Active account' : 'Activate account'),
+            h(Button, {
+              className: 'codexAccountAction codexDisconnect', variant: 'outline', size: 'md',
+              disabled: props.busy,
+              onClick: () => { void props.logout(account.accountId) },
+            }, 'Sign out'),
+          ),
+        ),
+        h('div', { className: 'codexUsageHeader' },
+          h('h3', { className: 'codexUsageHeading' }, 'Usage'),
+          h('span', { className: 'codexUpdated' }, usage && usage.fetchedAt ? 'Updated ' + new Date(usage.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''),
+          h('button', { type: 'button', className: 'codexRefresh', disabled: props.busy, 'data-busy': props.busy ? 'true' : 'false', 'aria-label': props.busy ? 'Refreshing usage' : 'Refresh usage', title: 'Refresh usage', onClick: props.refresh }, h(IconRefreshOutline16, { size: 16 })),
+        ),
+        windows.length > 0
+          ? h('div', { className: 'codexLimits' }, windows.map((row) => h(UsageRow, { key: row.name, name: row.name, window: row.window })))
+          : h('p', { className: 'codexEmpty' }, 'Usage information is unavailable right now.'),
+        usage && Number(usage.resetCredits) > 0 ? h('p', { className: 'codexCredit' }, usage.resetCredits + ' limit reset' + (usage.resetCredits === 1 ? '' : 's') + ' available') : null,
+        account.usageError ? h('p', { className: 'codexError', role: 'status' }, 'Could not load usage: ' + account.usageError) : null,
+      )
+    }
+
     function CodexSection() {
       const [status, setStatus] = useState(() => cachedStatus)
       const [device, setDevice] = useState(null)
       const [error, setError] = useState('')
       const [busy, setBusy] = useState(false)
       const [watchLogin, setWatchLogin] = useState(false)
+      const expectedAccountCount = useRef(0)
+      const sawLoginPending = useRef(false)
 
       const load = useCallback(async (refresh) => {
         try {
           const value = !refresh && initialStatusRequest !== null ? await initialStatusRequest : await requestStatus(refresh)
           setStatus(value)
           setError('')
-          if (value.loggedIn) {
+          if (value.loginPending) sawLoginPending.current = true
+          const accountCount = Array.isArray(value.accounts) ? value.accounts.length : 0
+          if (expectedAccountCount.current > 0
+            && (accountCount >= expectedAccountCount.current || (sawLoginPending.current && !value.loginPending))) {
+            expectedAccountCount.current = 0
+            sawLoginPending.current = false
             setWatchLogin(false)
             setDevice(null)
           }
@@ -153,9 +212,11 @@ window.__ModuleLoader__.load({
         return () => { window.clearInterval(timer) }
       }, [load, watchLogin])
 
-      const login = () => {
+      const login = (addAnother) => {
         setDevice(null)
-        const popup = window.open(BASE + '/start', 'dsh-openai-codex-login', 'popup,width=560,height=760')
+        expectedAccountCount.current = (status && Array.isArray(status.accounts) ? status.accounts.length : 0) + 1
+        sawLoginPending.current = false
+        const popup = window.open(BASE + '/start' + (addAnother ? '?add=1' : ''), 'dsh-openai-codex-login', 'popup,width=560,height=760')
         if (popup === null) setError('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.')
         setWatchLogin(true)
         window.setTimeout(() => { void load(false) }, 1000)
@@ -164,6 +225,8 @@ window.__ModuleLoader__.load({
       const deviceLogin = async () => {
         setBusy(true)
         try {
+          expectedAccountCount.current = (status && Array.isArray(status.accounts) ? status.accounts.length : 0) + 1
+          sawLoginPending.current = false
           const response = await fetch(BASE + '/start-device', { cache: 'no-store' })
           const value = await response.json()
           if (!response.ok) throw new Error(value.error || 'HTTP ' + response.status)
@@ -174,18 +237,25 @@ window.__ModuleLoader__.load({
         finally { setBusy(false) }
       }
 
-      const logout = async () => {
+      const accountAction = async (action, accountId) => {
         if (!status || !status.csrf) return
         setBusy(true)
         try {
-          const response = await fetch(BASE + '/logout', { method: 'POST', headers: { 'x-dsh-csrf': status.csrf } })
+          const response = await fetch(BASE + '/accounts/' + action, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-dsh-csrf': status.csrf },
+            body: JSON.stringify({ accountId }),
+          })
           const value = await response.json()
           if (!response.ok) throw new Error(value.error || 'HTTP ' + response.status)
           cachedStatus = null
           await load(false)
-        } catch (logoutError) { setError(messageOf(logoutError)) }
+        } catch (actionError) { setError(messageOf(actionError)) }
         finally { setBusy(false) }
       }
+
+      const logout = (accountId) => accountAction('remove', accountId)
+      const activate = (accountId) => accountAction('activate', accountId)
 
       const refresh = async () => {
         setBusy(true)
@@ -193,18 +263,10 @@ window.__ModuleLoader__.load({
         setBusy(false)
       }
 
-      const usage = status && status.usage
       const loading = status === null && !error
       const connected = Boolean(status && status.loggedIn)
       const pending = Boolean(status && status.loginPending) || watchLogin
-      const plan = usage && usage.planType ? String(usage.planType).charAt(0).toUpperCase() + String(usage.planType).slice(1).toLowerCase() : ''
-      const windows = useMemo(() => {
-        if (!usage) return []
-        const rows = []
-        if (usage.primary) rows.push({ name: usage.primary.windowSeconds && usage.primary.windowSeconds <= 21600 ? '5-hour limit' : usage.primary.windowSeconds && usage.primary.windowSeconds >= 604800 ? 'Weekly limit' : 'Usage limit', window: usage.primary })
-        if (usage.secondary) rows.push({ name: 'Weekly limit', window: usage.secondary })
-        return rows
-      }, [usage])
+      const accounts = status && Array.isArray(status.accounts) ? status.accounts : []
 
       return h('section', { className: 'codexSection' },
         h('h2', { className: 'codexTitle' }, 'OpenAI Codex'),
@@ -213,24 +275,8 @@ window.__ModuleLoader__.load({
           ? h('div', { 'aria-label': 'Loading' }, h('div', { className: 'codexSkeleton' }), h('div', { className: 'codexSkeleton', style: { width: '72%' } }))
           : connected
             ? h(React.Fragment, null,
-                h('div', { className: 'codexAccount' },
-                  h('div', { className: 'codexLogo' }, h(OpenAILogo)),
-                  h('div', { className: 'codexAccountText' },
-                    h('div', { className: 'codexAccountTitle' }, 'ChatGPT' + (plan ? ' ' + plan : '')),
-                    h('div', { className: 'codexAccountMeta' }, h('span', { className: 'codexConnectedDot', 'aria-hidden': true }), h('span', null, 'Connected')),
-                  ),
-                  h(Button, { className: 'codexAccountAction codexDisconnect', variant: 'outline', size: 'md', disabled: busy, onClick: () => { void logout() } }, 'Sign out'),
-                ),
-                h('div', { className: 'codexUsageHeader' },
-                  h('h3', { className: 'codexUsageHeading' }, 'Usage'),
-                  h('span', { className: 'codexUpdated' }, usage && usage.fetchedAt ? 'Updated ' + new Date(usage.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''),
-                  h('button', { type: 'button', className: 'codexRefresh', disabled: busy, 'data-busy': busy ? 'true' : 'false', 'aria-label': busy ? 'Refreshing usage' : 'Refresh usage', title: 'Refresh usage', onClick: refresh }, h(IconRefreshOutline16, { size: 16 })),
-                ),
-                windows.length > 0
-                  ? h('div', { className: 'codexLimits' }, windows.map((row) => h(UsageRow, { key: row.name, name: row.name, window: row.window })))
-                  : h('p', { className: 'codexEmpty' }, 'Usage information is unavailable right now.'),
-                usage && Number(usage.resetCredits) > 0 ? h('p', { className: 'codexCredit' }, usage.resetCredits + ' limit reset' + (usage.resetCredits === 1 ? '' : 's') + ' available') : null,
-                status.usageError ? h('p', { className: 'codexError', role: 'status' }, 'Could not load usage: ' + status.usageError) : null,
+                accounts.map((account) => h(AccountGroup, { key: account.accountId, account, busy, refresh, activate, logout })),
+                h(Button, { className: 'codexAddAccount', variant: 'outline', size: 'md', disabled: busy || pending, onClick: () => login(true) }, pending ? 'Waiting for authorization…' : 'Add another account'),
               )
             : h(React.Fragment, null,
                 h('div', { className: 'codexAccount' },
@@ -241,7 +287,7 @@ window.__ModuleLoader__.load({
                   ),
                 ),
                 h('div', { className: 'codexSignInActions' },
-                  h(Button, { variant: 'primary', disabled: busy || pending, onClick: login }, pending && !device ? 'Waiting for authorization…' : 'Sign in'),
+                  h(Button, { variant: 'primary', disabled: busy || pending, onClick: () => login(false) }, pending && !device ? 'Waiting for authorization…' : 'Sign in'),
                   h(Button, { className: 'codexDeviceButton', variant: 'outline', disabled: busy || pending, onClick: () => { void deviceLogin() } }, 'Use device code'),
                 ),
                 device
