@@ -11,33 +11,31 @@ window.__ModuleLoader__.load({
     const PLUGIN_ID = 'dsh-openai-codex-auth'
 
     const css = `
-      .codexSection{max-width:760px;padding:24px 28px 40px;color:var(--text-primary,#202124)}
-      .codexTitle{margin:0 0 6px;font-size:22px;line-height:1.3;font-weight:650}
-      .codexIntro{margin:0 0 20px;color:var(--text-secondary,#6b7280);font-size:14px;line-height:1.65}
-      .codexCard{overflow:hidden;border:1px solid var(--border-primary,#e5e7eb);border-radius:16px;background:var(--background-primary,#fff);box-shadow:0 8px 30px rgba(15,23,42,.05)}
-      .codexHero{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:22px 22px 18px;background:linear-gradient(135deg,rgba(16,185,129,.10),rgba(59,130,246,.07))}
-      .codexBrand{display:flex;align-items:center;gap:12px;min-width:0}
-      .codexLogo{display:grid;place-items:center;width:42px;height:42px;flex:0 0 auto;border-radius:12px;background:#111827;color:#fff;font:700 14px/1 ui-monospace,SFMono-Regular,Consolas,monospace}
-      .codexName{margin:0;font-size:17px;font-weight:650}.codexMeta{margin:4px 0 0;color:var(--text-secondary,#667085);font-size:12px;overflow-wrap:anywhere}
-      .codexBadge{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:600;background:rgba(107,114,128,.12);color:#667085}
-      .codexBadge.connected{background:rgba(16,185,129,.13);color:#07835d}.codexBadge.pending{background:rgba(245,158,11,.14);color:#a35f00}
-      .codexDot{width:7px;height:7px;border-radius:50%;background:currentColor}
-      .codexBody{padding:20px 22px 22px}.codexActions{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px}
-      .codexButton{appearance:none;border:1px solid var(--border-primary,#d7dce2);border-radius:9px;background:var(--background-primary,#fff);color:var(--text-primary,#202124);padding:8px 13px;font:600 13px/1.2 inherit;cursor:pointer;transition:.15s ease}
-      .codexButton:hover{border-color:#8b96a5;background:var(--background-secondary,#f7f8fa)}.codexButton:disabled{opacity:.5;cursor:not-allowed}
-      .codexButton.primary{border-color:#111827;background:#111827;color:#fff}.codexButton.primary:hover{background:#2a3443}.codexButton.danger{color:#c23b3b}
-      .codexGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:17px}
-      .codexUsage{border:1px solid var(--border-primary,#e5e7eb);border-radius:12px;padding:14px;background:var(--background-secondary,#fafafa)}
-      .codexUsageHead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.codexUsageName{font-size:13px;font-weight:600}.codexUsageValue{font-size:12px;color:var(--text-secondary,#667085)}
-      .codexBar{height:8px;margin:11px 0 9px;overflow:hidden;border-radius:999px;background:rgba(107,114,128,.16)}.codexBarFill{height:100%;border-radius:inherit;background:linear-gradient(90deg,#10b981,#3b82f6);transition:width .25s ease}.codexBarFill.high{background:linear-gradient(90deg,#f59e0b,#ef4444)}
-      .codexReset{font-size:12px;color:var(--text-secondary,#667085)}
-      .codexPlan{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}.codexPlan strong{font-size:14px}.codexPlan span{font-size:12px;color:var(--text-secondary,#667085)}
-      .codexNotice{margin:15px 0 0;border-radius:10px;padding:10px 12px;background:rgba(59,130,246,.08);color:var(--text-secondary,#526071);font-size:12px;line-height:1.55}
-      .codexTierUnavailable{margin:17px 0 0;border:1px solid var(--border-primary,#e5e7eb);border-radius:12px;padding:13px 14px;background:var(--background-secondary,#fafafa)}
-      .codexTierUnavailable strong{display:block;font-size:13px}.codexTierUnavailable span{display:block;margin-top:5px;color:var(--text-secondary,#667085);font-size:12px;line-height:1.55}
-      .codexError{margin:14px 0 0;border-radius:10px;padding:10px 12px;background:rgba(239,68,68,.09);color:#b42318;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
-      .codexEmpty{padding:6px 0;color:var(--text-secondary,#667085);font-size:13px;line-height:1.6}.codexSkeleton{height:9px;margin:10px 0;border-radius:99px;background:linear-gradient(90deg,#eee,#f7f7f7,#eee);background-size:200% 100%;animation:codexPulse 1.2s infinite}
-      @keyframes codexPulse{to{background-position:-200% 0}}@media(max-width:620px){.codexSection{padding:18px 15px 30px}.codexHero{padding:18px;flex-direction:column}.codexBody{padding:17px 18px 20px}.codexGrid{grid-template-columns:1fr}}
+      .codexSection{max-width:720px;color:var(--dsw-alias-label-primary);display:flex;flex-direction:column;gap:12px}
+      .codexTitle{margin:0;font-size:18px;line-height:1.4;font-weight:600}
+      .codexIntro{margin:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}
+      .codexCard{overflow:hidden;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-3)}
+      .codexHero{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border-bottom:1px solid var(--dsw-alias-border-l2)}
+      .codexBrand{display:flex;align-items:center;gap:10px;min-width:0}
+      .codexLogo{display:grid;place-items:center;width:34px;height:34px;flex:0 0 auto;border-radius:10px;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground);font:600 11px/1 var(--dsw-font-mono,ui-monospace,SFMono-Regular,Menlo,monospace)}
+      .codexName{margin:0;font-size:15px;line-height:1.4;font-weight:600}.codexMeta{margin:2px 0 0;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:17px;overflow-wrap:anywhere}
+      .codexBadge{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:1px 8px;color:var(--dsw-alias-label-tertiary);font-size:11px;font-weight:500;line-height:17px}
+      .codexBadge.connected{border-color:transparent;background:var(--dsw-alias-state-success-tertiary);color:var(--dsw-alias-state-success-primary)}.codexBadge.pending{border-color:transparent;background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-label)}
+      .codexDot{width:6px;height:6px;border-radius:50%;background:currentColor}
+      .codexBody{padding:16px}.codexActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+      .codexButton{appearance:none;height:36px;border:0;border-radius:18px;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-primary);padding:0 14px;font:400 14px/22px inherit;cursor:pointer;transition:background .16s,color .16s}
+      .codexButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.codexButton:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.codexButton:disabled{opacity:.4;cursor:default}
+      .codexButton.primary{background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground)}.codexButton.primary:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover)}.codexButton.danger{background:transparent;color:var(--dsw-alias-state-error-primary)}.codexButton.danger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)}
+      .codexGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+      .codexUsage{border:1px solid var(--dsw-alias-border-l2);border-radius:12px;padding:14px;background:var(--dsw-alias-bg-layer-2)}
+      .codexUsageHead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.codexUsageName{font-size:13px;font-weight:500}.codexUsageValue{font-size:12px;color:var(--dsw-alias-label-tertiary)}
+      .codexBar{height:6px;margin:11px 0 9px;overflow:hidden;border-radius:999px;background:var(--dsw-alias-bg-module-platform)}.codexBarFill{height:100%;border-radius:inherit;background:var(--dsw-alias-state-success-primary);transition:width .25s ease}.codexBarFill.high{background:var(--dsw-alias-state-warn-primary)}
+      .codexReset{font-size:12px;color:var(--dsw-alias-label-tertiary)}
+      .codexPlan{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:2px}.codexPlan strong{font-size:14px;font-weight:500}.codexPlan span{font-size:12px;color:var(--dsw-alias-label-tertiary)}
+      .codexNotice{margin:14px 0 0;border-radius:10px;padding:9px 12px;background:var(--dsw-specific-tip);color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.5}
+      .codexError{margin:14px 0 0;color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+      .codexEmpty{margin:0;padding:2px 0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}.codexSkeleton{height:8px;margin:10px 0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}
+      @keyframes codexPulse{to{opacity:.4}}@media(max-width:620px){.codexHero{align-items:flex-start;flex-direction:column}.codexGrid{grid-template-columns:1fr}}
     `
     if (typeof document !== 'undefined' && document.querySelector('style[data-plugin="' + PLUGIN_ID + '"]') === null) {
       const style = document.createElement('style')
@@ -174,12 +172,6 @@ window.__ModuleLoader__.load({
                 : h('p', { className: 'codexEmpty' }, 'Signing in opens OpenAI\'s authorization page. The plugin stores and refreshes tokens only on the host; the web page never receives them.'),
             status && status.loginError ? h('p', { className: 'codexError', role: 'alert' }, 'Sign-in failed: ' + status.loginError) : null,
             error ? h('p', { className: 'codexError', role: 'alert' }, error) : null,
-            status && status.serviceTier && !status.serviceTier.forwardingSupported
-              ? h('div', { className: 'codexTierUnavailable' },
-                  h('strong', null, 'Service tier: provider default'),
-                  h('span', null, 'Normal and Priority need support in DeepSeek Harness and its pi-ai adapter. This plugin does not show a switch until the choice can affect real requests.'),
-                )
-              : null,
             h('div', { className: 'codexActions' },
               h('button', { type: 'button', className: 'codexButton primary', disabled: busy || pending || loading, onClick: login }, loading ? 'Checking status…' : connected ? 'Sign in again' : pending ? 'Waiting for authorization…' : 'Sign in with OpenAI'),
               connected ? h('button', { type: 'button', className: 'codexButton', disabled: busy, onClick: refresh }, busy ? 'Refreshing…' : 'Refresh usage') : null,
@@ -187,7 +179,6 @@ window.__ModuleLoader__.load({
             ),
           ),
         ),
-        h('p', { className: 'codexNotice' }, 'This page uses a loopback bridge at 127.0.0.1; opening DSH Web remotely does not expose the authentication API.'),
       )
     }
 

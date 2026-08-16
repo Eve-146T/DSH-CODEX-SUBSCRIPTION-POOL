@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import {
   normalizeUsage,
   parseServiceTierSelection,
@@ -43,4 +45,15 @@ describe('service tier preference', () => {
     'rejects unsupported or malformed choice %j',
     (value) => { expect(() => parseServiceTierSelection(value)).toThrow('must be "normal" or "priority"') },
   )
+})
+
+describe('settings UI integration', () => {
+  it('uses DSH design tokens and omits internal implementation notices', () => {
+    const client = readFileSync(fileURLToPath(new URL('../client.js', import.meta.url)), 'utf8')
+    expect(client).toContain('var(--dsw-alias-label-primary)')
+    expect(client).toContain('var(--dsw-alias-bg-layer-3)')
+    expect(client).not.toContain('This page uses a loopback bridge')
+    expect(client).not.toContain('Service tier: provider default')
+    expect(client).not.toContain('This plugin does not show a switch')
+  })
 })
