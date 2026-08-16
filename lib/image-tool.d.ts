@@ -1,5 +1,6 @@
 /** OpenAI-hosted image generation tool for DeepSeek Harness. */
 import type { Context } from '@deepseek-ai/cordis';
+import type { ToolDefinition } from '@deepseek-ai/dsh-tools';
 export declare const name = "openai-codex-image";
 export declare const inject: string[];
 export type ImageSize = '1024x1024' | '1536x1024' | '1024x1536';
@@ -17,7 +18,7 @@ export declare function buildImageGenerationRequest(args: {
     size?: ImageSize;
     quality?: ImageQuality;
 }): Record<string, unknown>;
-export declare function imageToolDefinition(ctx: Context): import("@deepseek-ai/dsh-tools").ToolDefinition;
+export declare function imageToolDefinition(ctx: Context): ToolDefinition;
 export declare function apply(ctx: Context): void;
 declare const _default: {
     name: string;

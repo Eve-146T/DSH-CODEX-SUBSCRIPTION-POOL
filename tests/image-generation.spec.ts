@@ -29,6 +29,15 @@ describe('image generation protocol', () => {
     })
   })
 
+  it('gives the model task-oriented generation and workspace-save guidance', () => {
+    const source = readFileSync(fileURLToPath(new URL('../src/image-tool.ts', import.meta.url)), 'utf8')
+    expect(source).toContain('Generate a new raster image for a project asset')
+    expect(source).toContain("output_path: {")
+    expect(source).toContain('inside the current session workspace')
+    expect(source).toContain("open(path, 'wx', 0o644)")
+    expect(source).not.toContain('through the signed-in ChatGPT/Codex subscription')
+  })
+
   it('reads completed image calls from both Responses event shapes', () => {
     expect(normalizeImageGenerationEvents([{
       type: 'response.output_item.done',
@@ -62,10 +71,13 @@ describe('image generation protocol', () => {
     const patch = readFileSync(fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)), 'utf8')
     const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')) as {
       exports: Record<string, unknown>
+      dependencies: Record<string, string>
     }
     expect(pkg.exports).toHaveProperty('./image-tool')
     expect(patch).toContain('name: dsh-openai-codex-auth/image-tool')
     expect(client).toContain("key: 'image_gen'")
     expect(client).toContain('ctx.conversation.resolveImage')
+    expect(client).toContain('function SparkleIcon()')
+    expect(pkg.dependencies).not.toHaveProperty('@deepseek-ai/dsh-tools')
   })
 })
