@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({
 
     const React = require('react')
     const { createElement: h, useCallback, useEffect, useMemo, useState } = React
-    const { Button, IconRefreshOutline16, StateDot } = require('@deepseek-ai/dsh-client-ui-primitives')
+    const { Button, IconRefreshOutline16 } = require('@deepseek-ai/dsh-client-ui-primitives')
     const BASE = 'http://127.0.0.1:1456'
     const PLUGIN_ID = 'dsh-openai-codex-auth'
     const OPENAI_LOGO_PATH = 'M38.355 36.52v-9.415c0-.793.297-1.388.99-1.784l18.93-10.902c2.578-1.486 5.65-2.18 8.82-2.18 11.894 0 19.426 9.218 19.426 19.029 0 .694 0 1.486-.1 2.28L66.799 22.05c-1.189-.694-2.379-.694-3.568 0L38.355 36.52Zm44.202 36.67V50.694c0-1.388-.596-2.38-1.785-3.073L55.897 33.15l8.126-4.658c.694-.396 1.289-.396 1.982 0l18.93 10.902c5.452 3.172 9.118 9.91 9.118 16.452 0 7.531-4.46 14.47-11.496 17.344Zm-50.05-19.82-8.127-4.757c-.693-.396-.99-.99-.99-1.784V25.025c0-10.605 8.126-18.633 19.127-18.633 4.163 0 8.028 1.388 11.3 3.865l-19.525 11.3c-1.189.693-1.784 1.684-1.784 3.072v28.74ZM50 63.478l-11.645-6.541V43.062L50 36.522l11.645 6.54v13.875L50 63.477Zm7.483 30.129c-4.163 0-8.028-1.388-11.3-3.865l19.525-11.3c1.189-.693 1.784-1.684 1.784-3.071V46.629l8.226 4.757c.694.396.991.991.991 1.784v21.803c0 10.605-8.226 18.633-19.226 18.633v.001Zm-23.49-22.101-18.93-10.902c-5.45-3.172-9.117-9.91-9.117-16.451 0-7.632 4.559-14.47 11.595-17.344v22.596c0 1.388.595 2.379 1.784 3.072l24.777 14.37-8.126 4.659c-.694.396-1.289.396-1.982 0ZM32.905 87.76c-11.2 0-19.425-8.425-19.425-18.83 0-.794.1-1.587.198-2.38L33.2 77.85c1.189.693 2.379.693 3.568 0l24.876-14.37v9.415c0 .793-.298 1.388-.992 1.784L41.724 85.58c-2.576 1.486-5.649 2.18-8.82 2.18h.001Zm24.579 11.793c11.992 0 22.001-8.523 24.281-19.822C92.864 76.857 100 66.451 100 55.846c0-6.937-2.973-13.676-8.325-18.533.496-2.081.793-4.163.793-6.243 0-14.172-11.496-24.777-24.777-24.777-2.676 0-5.253.396-7.83 1.288C55.401 3.221 49.257.445 42.517.445c-11.992 0-22.001 8.523-24.281 19.822C7.136 23.14 0 33.547 0 44.152c0 6.938 2.973 13.676 8.325 18.533-.496 2.081-.793 4.163-.793 6.243 0 14.172 11.497 24.778 24.777 24.778 2.676 0 5.253-.397 7.83-1.289 4.459 4.36 10.604 7.136 17.344 7.136Z'
@@ -19,8 +19,8 @@ window.__ModuleLoader__.load({
       .codexIntro{margin:6px 0 8px;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}
       .codexAccount{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}
       .codexLogo{display:grid;place-items:center;width:34px;height:34px;flex:none;color:var(--dsw-alias-label-primary)}.codexLogo svg{width:24px;height:24px}
-      .codexAccountText{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}.codexAccountTitle{font-size:14px;font-weight:400;line-height:22px}.codexAccountMeta{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
-      .codexAccountAction{flex:none}.codexDisconnect{color:var(--dsw-alias-state-error-primary)!important}
+      .codexAccountText{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}.codexAccountTitle{font-size:14px;font-weight:400;line-height:22px}.codexAccountMeta{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexConnectedDot{box-sizing:border-box;width:8px;height:8px;display:block;flex:none;border-radius:50%;background:var(--dsw-alias-state-success-primary)}
+      .codexAccountAction{flex:none}.codexDisconnect{box-sizing:border-box!important;height:36px!important;border:1px solid var(--dsw-alias-state-error-primary)!important;border-radius:18px!important;color:var(--dsw-alias-state-error-primary)!important;background:transparent!important;padding:0 14px!important;font-size:14px!important;line-height:22px!important}.codexDisconnect:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)!important}
       .codexUsageHeader{display:flex;align-items:center;gap:8px;padding:18px 0 4px}.codexUsageHeading{flex:1;margin:0;font-size:12px;font-weight:600;line-height:18px;letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary)}
       .codexUpdated{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
       .codexRefresh{appearance:none;width:28px;height:28px;display:inline-grid;place-items:center;flex:none;padding:0;border:0;border-radius:50%;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer}.codexRefresh:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.codexRefresh:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.codexRefresh:disabled{opacity:.4;cursor:default}.codexRefresh[data-busy=true] svg{animation:codexSpin .8s linear infinite}
@@ -41,6 +41,27 @@ window.__ModuleLoader__.load({
     function messageOf(error) {
       return error instanceof Error ? error.message : String(error)
     }
+
+    let cachedStatus = null
+    let initialStatusRequest = null
+
+    async function requestStatus(refresh) {
+      const response = await fetch(BASE + '/status' + (refresh ? '?refresh=1' : ''), { cache: 'no-store' })
+      const value = await response.json()
+      if (!response.ok) throw new Error(value.error || 'HTTP ' + response.status)
+      cachedStatus = value
+      return value
+    }
+
+    function prefetchStatus() {
+      if (cachedStatus !== null) return Promise.resolve(cachedStatus)
+      if (initialStatusRequest === null) {
+        initialStatusRequest = requestStatus(false).finally(() => { initialStatusRequest = null })
+      }
+      return initialStatusRequest
+    }
+
+    if (typeof window !== 'undefined') void prefetchStatus().catch(() => {})
 
     function OpenAILogo(props) {
       return h('svg', { className: props && props.className, viewBox: '0 0 100 100', fill: 'currentColor', 'aria-hidden': true }, h('path', { d: OPENAI_LOGO_PATH }))
@@ -70,7 +91,7 @@ window.__ModuleLoader__.load({
     }
 
     function CodexSection() {
-      const [status, setStatus] = useState(null)
+      const [status, setStatus] = useState(() => cachedStatus)
       const [error, setError] = useState('')
       const [busy, setBusy] = useState(false)
       const [watchLogin, setWatchLogin] = useState(false)
@@ -94,9 +115,7 @@ window.__ModuleLoader__.load({
 
       const load = useCallback(async (refresh) => {
         try {
-          const response = await fetch(BASE + '/status' + (refresh ? '?refresh=1' : ''), { cache: 'no-store' })
-          const value = await response.json()
-          if (!response.ok) throw new Error(value.error || 'HTTP ' + response.status)
+          const value = !refresh && initialStatusRequest !== null ? await initialStatusRequest : await requestStatus(refresh)
           setStatus(value)
           setError('')
           if (value.loggedIn) setWatchLogin(false)
@@ -125,6 +144,7 @@ window.__ModuleLoader__.load({
           const response = await fetch(BASE + '/logout', { method: 'POST', headers: { 'x-dsh-csrf': status.csrf } })
           const value = await response.json()
           if (!response.ok) throw new Error(value.error || 'HTTP ' + response.status)
+          cachedStatus = null
           await load(false)
         } catch (logoutError) { setError(messageOf(logoutError)) }
         finally { setBusy(false) }
@@ -160,9 +180,9 @@ window.__ModuleLoader__.load({
                   h('div', { className: 'codexLogo' }, h(OpenAILogo)),
                   h('div', { className: 'codexAccountText' },
                     h('div', { className: 'codexAccountTitle' }, 'ChatGPT' + (plan ? ' ' + plan : '')),
-                    h('div', { className: 'codexAccountMeta' }, h(StateDot, { state: 'done', size: 8 }), h('span', null, 'Connected')),
+                    h('div', { className: 'codexAccountMeta' }, h('span', { className: 'codexConnectedDot', 'aria-hidden': true }), h('span', null, 'Connected')),
                   ),
-                  h(Button, { className: 'codexAccountAction codexDisconnect', variant: 'ghost', size: 'sm', disabled: busy, onClick: () => { void logout() } }, 'Sign out'),
+                  h(Button, { className: 'codexAccountAction codexDisconnect', variant: 'outline', size: 'md', disabled: busy, onClick: () => { void logout() } }, 'Sign out'),
                 ),
                 h('div', { className: 'codexUsageHeader' },
                   h('h3', { className: 'codexUsageHeading' }, 'Usage'),
