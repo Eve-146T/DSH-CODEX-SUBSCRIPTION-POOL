@@ -165,10 +165,10 @@ window.__ModuleLoader__.load({
       return split > 0 ? '*'.repeat(split) + value.slice(split) : value
     }
 
-    function isAllowedModel(value) {
-      const model = String(value || '').toLowerCase().replace(/[_\s]+/g, '-')
-      return /(?:^|-)gpt-5\.6(?:-|$)/.test(model) || /(?:^|-)5\.6(?:-|$)/.test(model)
-        || /(?:^|-)gpt-5\.3-spark(?:-|$)/.test(model) || /(?:^|-)5\.3-spark(?:-|$)/.test(model)
+    function isAllowedCodexModel(value) {
+      const model = String(value || '').trim().toLowerCase().replace(/[_\s]+/g, '-')
+      return /(?:^|-)(?:gpt-)?5\.6(?:-|$)/.test(model)
+        || /(?:^|-)(?:gpt-)?5\.3(?:-codex)?-spark(?:-|$)/.test(model)
     }
 
     function modelValue(node) {
@@ -177,6 +177,22 @@ window.__ModuleLoader__.load({
 
     function looksLikeModel(value) {
       return /gpt|codex|deepseek|claude|gemini|qwen|llama|spark|sonnet|opus|haiku|model/i.test(String(value || ''))
+    }
+
+    function modelProvider(node) {
+      const providerNode = node.closest('[data-provider-id],[data-provider]')
+      const explicitProvider = providerNode && (providerNode.getAttribute('data-provider-id') || providerNode.getAttribute('data-provider'))
+      if (explicitProvider) return explicitProvider
+
+      const group = node.closest('[role="group"]')
+      if (!group) return ''
+      const headingId = group.getAttribute('aria-labelledby')
+      const heading = headingId ? document.getElementById(headingId) : null
+      return heading ? heading.textContent || '' : ''
+    }
+
+    function isCodexProviderModel(node) {
+      return /openai[-\s]?codex/i.test(modelProvider(node))
     }
 
     function applyModelFilter(enabled) {
@@ -191,7 +207,7 @@ window.__ModuleLoader__.load({
       ])
       candidates.forEach((node) => {
         const value = modelValue(node)
-        if (value && looksLikeModel(value) && !isAllowedModel(value)) {
+        if (isCodexProviderModel(node) && value && looksLikeModel(value) && !isAllowedCodexModel(value)) {
           const target = node.closest('button,[role="option"],[role="menuitemradio"]') || node
           target.setAttribute('data-codex-model-hidden', 'true')
           target.style.setProperty('display', 'none', 'important')
