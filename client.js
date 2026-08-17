@@ -10,8 +10,102 @@ window.__ModuleLoader__.load({
     const { Button } = require('@deepseek-ai/dsh-client-ui-primitives')
     const BASE = 'http://127.0.0.1:1456'
     const PLUGIN_ID = 'dsh-openai-codex-auth'
+    const LOCALE_NS = 'settings.openai-codex'
     const PREFERENCE_PREFIX = PLUGIN_ID + '.preference.'
     const PREFERENCE_EVENT = PLUGIN_ID + ':preference'
+    const LOCALE_EN = {
+      nav: 'OpenAI Codex',
+      'reset.unavailable': 'Reset time unavailable',
+      'reset.soon': 'Resetting soon',
+      'reset.days': 'resets in {count} days',
+      'reset.hoursMinutes': 'resets in {hours} hr {minutes} min',
+      'reset.minutes': 'resets in {count} min',
+      'meter.unavailable': 'Unavailable',
+      'meter.left': '{count}% left',
+      'meter.remaining': '{count}% remaining',
+      connected: 'Connected',
+      redeem: 'Redeem reset',
+      active: 'Active account',
+      activate: 'Activate account',
+      signOut: 'Sign out',
+      usageError: 'Could not load usage: {error}',
+      settings: 'Settings',
+      hideModels: 'Hide useless models',
+      emailPrivacy: 'Email privacy',
+      showImages: 'Show generated images in threads',
+      loading: 'Loading',
+      waitingAuthorization: 'Waiting for authorization…',
+      addAccount: 'Add another account',
+      waitingSignin: 'Waiting for sign-in',
+      notConnected: 'Not connected',
+      signIn: 'Sign in',
+      deviceCode: 'Use device code',
+      deviceEnter: 'Enter this code at OpenAI',
+      deviceOpen: 'Open sign-in page',
+      connectError: 'Could not connect to the local Codex plugin service. Restart the DSH Web profile and try again.',
+      popupBlocked: 'Your browser blocked the sign-in window. Allow pop-ups for this site and try again.',
+      redeemConfirm: 'Redeem one usage limit reset for this account?',
+      signInFailed: 'Sign-in failed: {error}',
+      imageFailed: 'Failed',
+      imageReady: 'Ready',
+      imageLoading: 'Loading preview',
+      imageGenerating: 'Generating',
+      imageGeneration: 'Image generation',
+      details: 'Details',
+      openFullImage: 'Open full image',
+      generatedImage: 'Generated image',
+      previewUnavailable: 'Preview is unavailable.',
+    }
+    const LOCALE_ZH = {
+      nav: 'OpenAI Codex',
+      'reset.unavailable': '暂无重置时间',
+      'reset.soon': '即将重置',
+      'reset.days': '{count} 天后重置',
+      'reset.hoursMinutes': '{hours} 小时 {minutes} 分钟后重置',
+      'reset.minutes': '{count} 分钟后重置',
+      'meter.unavailable': '暂无数据',
+      'meter.left': '剩余 {count}%',
+      'meter.remaining': '剩余 {count}%',
+      connected: '已连接',
+      redeem: '兑换重置',
+      active: '当前账户',
+      activate: '激活账户',
+      signOut: '退出登录',
+      usageError: '无法加载使用情况：{error}',
+      settings: '设置',
+      hideModels: '隐藏无用模型',
+      emailPrivacy: '邮箱隐私',
+      showImages: '在对话中显示生成的图像',
+      loading: '加载中',
+      waitingAuthorization: '等待授权…',
+      addAccount: '添加其他账户',
+      waitingSignin: '等待登录',
+      notConnected: '未连接',
+      signIn: '登录',
+      deviceCode: '使用设备码',
+      deviceEnter: '在 OpenAI 输入此代码',
+      deviceOpen: '打开登录页面',
+      connectError: '无法连接到本地 Codex 插件服务。请重启 DSH Web 配置文件并重试。',
+      popupBlocked: '浏览器阻止了登录窗口。请允许此网站弹出窗口后重试。',
+      redeemConfirm: '要为此账户兑换一个使用额度重置吗？',
+      signInFailed: '登录失败：{error}',
+      imageFailed: '失败',
+      imageReady: '就绪',
+      imageLoading: '正在加载预览',
+      imageGenerating: '生成中',
+      imageGeneration: '图像生成',
+      details: '详情',
+      openFullImage: '打开完整图像',
+      generatedImage: '生成的图像',
+      previewUnavailable: '预览不可用。',
+    }
+    function interpolate(template, params) {
+      if (!params) return template
+      return template.replace(/\{(\w+)\}/g, (match, name) => name in params ? String(params[name]) : match)
+    }
+    function fallbackTranslate(key, params) {
+      return interpolate(LOCALE_EN[key] || key, params)
+    }
     const OPENAI_LOGO_PATH = 'M38.355 36.52v-9.415c0-.793.297-1.388.99-1.784l18.93-10.902c2.578-1.486 5.65-2.18 8.82-2.18 11.894 0 19.426 9.218 19.426 19.029 0 .694 0 1.486-.1 2.28L66.799 22.05c-1.189-.694-2.379-.694-3.568 0L38.355 36.52Zm44.202 36.67V50.694c0-1.388-.596-2.38-1.785-3.073L55.897 33.15l8.126-4.658c.694-.396 1.289-.396 1.982 0l18.93 10.902c5.452 3.172 9.118 9.91 9.118 16.452 0 7.531-4.46 14.47-11.496 17.344Zm-50.05-19.82-8.127-4.757c-.693-.396-.99-.99-.99-1.784V25.025c0-10.605 8.126-18.633 19.127-18.633 4.163 0 8.028 1.388 11.3 3.865l-19.525 11.3c-1.189.693-1.784 1.684-1.784 3.072v28.74ZM50 63.478l-11.645-6.541V43.062L50 36.522l11.645 6.54v13.875L50 63.477Zm7.483 30.129c-4.163 0-8.028-1.388-11.3-3.865l19.525-11.3c1.189-.693 1.784-1.684 1.784-3.071V46.629l8.226 4.757c.694.396.991.991.991 1.784v21.803c0 10.605-8.226 18.633-19.226 18.633v.001Zm-23.49-22.101-18.93-10.902c-5.45-3.172-9.117-9.91-9.117-16.451 0-7.632 4.559-14.47 11.595-17.344v22.596c0 1.388.595 2.379 1.784 3.072l24.777 14.37-8.126 4.659c-.694.396-1.289.396-1.982 0ZM32.905 87.76c-11.2 0-19.425-8.425-19.425-18.83 0-.794.1-1.587.198-2.38L33.2 77.85c1.189.693 2.379.693 3.568 0l24.876-14.37v9.415c0 .793-.298 1.388-.992 1.784L41.724 85.58c-2.576 1.486-5.649 2.18-8.82 2.18h.001Zm24.579 11.793c11.992 0 22.001-8.523 24.281-19.822C92.864 76.857 100 66.451 100 55.846c0-6.937-2.973-13.676-8.325-18.533.496-2.081.793-4.163.793-6.243 0-14.172-11.496-24.777-24.777-24.777-2.676 0-5.253.396-7.83 1.288C55.401 3.221 49.257.445 42.517.445c-11.992 0-22.001 8.523-24.281 19.822C7.136 23.14 0 33.547 0 44.152c0 6.938 2.973 13.676 8.325 18.533-.496 2.081-.793 4.163-.793 6.243 0 14.172 11.497 24.778 24.777 24.778 2.676 0 5.253-.397 7.83-1.289 4.459 4.36 10.604 7.136 17.344 7.136Z'
 
     const css = `
@@ -91,11 +185,16 @@ window.__ModuleLoader__.load({
         node.removeAttribute('data-codex-model-hidden')
       })
       if (!enabled) return
-      document.querySelectorAll('[data-model-id],[data-model],[role="option"][data-value]').forEach((node) => {
+      const candidates = new Set([
+        ...document.querySelectorAll('[data-model-id],[data-model],[role="option"][data-value]'),
+        ...document.querySelectorAll('.modelName'),
+      ])
+      candidates.forEach((node) => {
         const value = modelValue(node)
         if (value && looksLikeModel(value) && !isAllowedModel(value)) {
-          node.setAttribute('data-codex-model-hidden', 'true')
-          node.style.setProperty('display', 'none', 'important')
+          const target = node.closest('button,[role="option"],[role="menuitemradio"]') || node
+          target.setAttribute('data-codex-model-hidden', 'true')
+          target.style.setProperty('display', 'none', 'important')
         }
       })
     }
@@ -187,15 +286,19 @@ window.__ModuleLoader__.load({
       navLogoObserver.observe(document.body, { childList: true, subtree: true })
     }
 
-    function formatReset(seconds) {
-      if (!Number.isFinite(seconds)) return 'Reset time unavailable'
+    function formatReset(seconds, t) {
+      const translate = typeof t === 'function' ? t : fallbackTranslate
+      if (!Number.isFinite(seconds)) return translate('reset.unavailable')
       const date = new Date(seconds * 1000)
       const remaining = date.getTime() - Date.now()
-      if (remaining <= 0) return 'Resetting soon'
+      if (remaining <= 0) return translate('reset.soon')
       const hours = Math.floor(remaining / 3600000)
       const minutes = Math.max(1, Math.floor((remaining % 3600000) / 60000))
-      const relative = hours >= 24 ? 'in ' + Math.floor(hours / 24) + ' days' : hours > 0 ? 'in ' + hours + ' hr ' + minutes + ' min' : 'in ' + minutes + ' min'
-      return relative.charAt(0).toUpperCase() + relative.slice(1)
+      return hours >= 24
+        ? translate('reset.days', { count: Math.floor(hours / 24) })
+        : hours > 0
+          ? translate('reset.hoursMinutes', { hours, minutes })
+          : translate('reset.minutes', { count: minutes })
     }
 
     function weeklyWindow(usage) {
@@ -206,18 +309,18 @@ window.__ModuleLoader__.load({
     }
 
     function UsageMeter(props) {
-      if (!props.window) return h('span', { className: 'codexMeterEmpty' }, 'Unavailable')
+      const t = typeof props.t === 'function' ? props.t : fallbackTranslate
+      if (!props.window) return h('span', { className: 'codexMeterEmpty' }, t('meter.unavailable'))
       const used = Math.max(0, Math.min(100, Number(props.window.usedPercent) || 0))
       const left = Math.max(0, Math.round(100 - used))
       const health = left <= 15 ? 'low' : left <= 50 ? 'warn' : 'good'
-      const reset = formatReset(props.window.resetAt)
-      const resetLabel = reset.startsWith('In ') ? 'resets ' + reset.toLowerCase() : reset
+      const resetLabel = formatReset(props.window.resetAt, t)
       return h('div', { className: 'codexMeter' },
         h('div', { className: 'codexMeterCopy' },
-          h('strong', { className: 'codexMeterValue' }, left + '% left'),
+          h('strong', { className: 'codexMeterValue' }, t('meter.left', { count: left })),
           h('span', { className: 'codexMeterReset' }, resetLabel),
         ),
-        h('div', { className: 'codexMeterTrack', role: 'progressbar', 'aria-label': left + '% remaining', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': left },
+        h('div', { className: 'codexMeterTrack', role: 'progressbar', 'aria-label': t('meter.remaining', { count: left }), 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': left },
           h('div', { className: 'codexMeterFill ' + health, style: { width: left + '%' } }),
         ),
       )
@@ -225,6 +328,7 @@ window.__ModuleLoader__.load({
 
     function AccountGroup(props) {
       const account = props.account
+      const t = typeof props.t === 'function' ? props.t : fallbackTranslate
       const usage = account.usage
       const plan = usage && usage.planType
         ? String(usage.planType).charAt(0).toUpperCase() + String(usage.planType).slice(1).toLowerCase()
@@ -239,29 +343,29 @@ window.__ModuleLoader__.load({
             identity ? h('div', { className: 'codexAccountIdentity', title: identity }, props.emailPrivacy ? maskEmail(identity) : identity) : null,
             h('div', { className: 'codexAccountMeta' },
               h('span', { className: 'codexConnectedDot', 'aria-hidden': true }),
-              h('span', null, 'Connected'),
+              h('span', null, t('connected')),
             ),
           ),
           h('div', { className: 'codexAccountRight' },
-            h(UsageMeter, { window: weekly }),
+            h(UsageMeter, { window: weekly, t }),
             h('div', { className: 'codexAccountActions' },
               h('span', { className: 'codexResetSlot' }, Number(usage && usage.resetCredits) > 0
-                ? h(Button, { className: 'codexAccountAction codexRedeem', variant: 'outline', size: 'md', disabled: props.busy, onClick: () => { void props.redeem(account.accountId) } }, 'Redeem reset')
+                ? h(Button, { className: 'codexAccountAction codexRedeem', variant: 'outline', size: 'md', disabled: props.busy, onClick: () => { void props.redeem(account.accountId) } }, t('redeem'))
                 : null),
               h(Button, {
                 className: 'codexAccountAction codexActivate', variant: 'outline', size: 'md',
                 disabled: props.busy || account.active,
                 onClick: () => { void props.activate(account.accountId) },
-              }, account.active ? 'Active account' : 'Activate account'),
+              }, account.active ? t('active') : t('activate')),
               h(Button, {
                 className: 'codexAccountAction codexDisconnect', variant: 'outline', size: 'md',
                 disabled: props.busy,
                 onClick: () => { void props.logout(account.accountId) },
-              }, 'Sign out'),
+              }, t('signOut')),
             ),
           ),
         ),
-        account.usageError ? h('p', { className: 'codexError', role: 'status' }, 'Could not load usage: ' + account.usageError) : null,
+        account.usageError ? h('p', { className: 'codexError', role: 'status' }, t('usageError', { error: account.usageError })) : null,
       )
     }
 
@@ -277,7 +381,8 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function CodexSection() {
+    function CodexSection(props) {
+      const t = props && typeof props.t === 'function' ? props.t : fallbackTranslate
       const [status, setStatus] = useState(() => cachedStatus)
       const [device, setDevice] = useState(null)
       const [error, setError] = useState('')
@@ -306,7 +411,7 @@ window.__ModuleLoader__.load({
             setDevice(null)
           }
         } catch (loadError) {
-          setError('Could not connect to the local Codex plugin service. Restart the DSH Web profile and try again.' + (messageOf(loadError) ? ' (' + messageOf(loadError) + ')' : ''))
+          setError(t('connectError') + (messageOf(loadError) ? ' (' + messageOf(loadError) + ')' : ''))
         }
       }, [])
 
@@ -321,7 +426,7 @@ window.__ModuleLoader__.load({
         expectedAccountCount.current = (status && Array.isArray(status.accounts) ? status.accounts.length : 0) + 1
         sawLoginPending.current = false
         const popup = window.open(BASE + '/start' + (addAnother ? '?add=1' : ''), 'dsh-openai-codex-login', 'popup,width=560,height=760')
-        if (popup === null) setError('Your browser blocked the sign-in window. Allow pop-ups for this site and try again.')
+        if (popup === null) setError(t('popupBlocked'))
         setWatchLogin(true)
         window.setTimeout(() => { void load(false) }, 1000)
       }
@@ -361,7 +466,7 @@ window.__ModuleLoader__.load({
       const logout = (accountId) => accountAction('remove', accountId)
       const activate = (accountId) => accountAction('activate', accountId)
       const redeem = (accountId) => {
-        if (!window.confirm('Redeem one usage limit reset for this account?')) return Promise.resolve()
+        if (!window.confirm(t('redeemConfirm'))) return Promise.resolve()
         return accountAction('redeem', accountId)
       }
 
@@ -372,16 +477,16 @@ window.__ModuleLoader__.load({
 
       return h('section', { className: 'codexSection' },
         loading
-          ? h('div', { 'aria-label': 'Loading' }, h('div', { className: 'codexSkeleton' }), h('div', { className: 'codexSkeleton', style: { width: '72%' } }))
+          ? h('div', { 'aria-label': t('loading') }, h('div', { className: 'codexSkeleton' }), h('div', { className: 'codexSkeleton', style: { width: '72%' } }))
           : connected
             ? h(React.Fragment, null,
-                h('div', { className: 'codexAccounts' }, accounts.map((account) => h(AccountGroup, { key: account.accountId, account, busy, activate, logout, redeem, emailPrivacy }))),
-                h('div', { className: 'codexAddRow' }, h(Button, { className: 'codexAddAccount', variant: 'outline', size: 'md', disabled: busy || pending, onClick: () => login(true) }, pending ? 'Waiting for authorization…' : 'Add another account')),
+                h('div', { className: 'codexAccounts' }, accounts.map((account) => h(AccountGroup, { key: account.accountId, account, busy, activate, logout, redeem, emailPrivacy, t }))),
+                h('div', { className: 'codexAddRow' }, h(Button, { className: 'codexAddAccount', variant: 'outline', size: 'md', disabled: busy || pending, onClick: () => login(true) }, pending ? t('waitingAuthorization') : t('addAccount'))),
                 h('div', { className: 'codexPreferences' },
-                  h('h3', { className: 'codexPreferencesTitle' }, 'Settings'),
-                  h(PreferenceToggle, { label: 'Hide useless models', value: hideModels, onChange: setHideModels }),
-                  h(PreferenceToggle, { label: 'Email privacy', value: emailPrivacy, onChange: setEmailPrivacy }),
-                  h(PreferenceToggle, { label: 'Show generated images in threads', value: showImages, onChange: setShowImages }),
+                  h('h3', { className: 'codexPreferencesTitle' }, t('settings')),
+                  h(PreferenceToggle, { t, label: t('hideModels'), value: hideModels, onChange: setHideModels }),
+                  h(PreferenceToggle, { t, label: t('emailPrivacy'), value: emailPrivacy, onChange: setEmailPrivacy }),
+                  h(PreferenceToggle, { t, label: t('showImages'), value: showImages, onChange: setShowImages }),
                 ),
               )
             : h(React.Fragment, null,
@@ -389,24 +494,24 @@ window.__ModuleLoader__.load({
                   h('div', { className: 'codexLogo' }, h(OpenAILogo)),
                   h('div', { className: 'codexAccountText' },
                     h('div', { className: 'codexAccountTitle' }, 'ChatGPT'),
-                    h('div', { className: 'codexAccountMeta' }, pending ? 'Waiting for sign-in' : 'Not connected'),
+                    h('div', { className: 'codexAccountMeta' }, pending ? t('waitingSignin') : t('notConnected')),
                   ),
                 ),
                 h('div', { className: 'codexSignInActions' },
-                  h(Button, { variant: 'primary', disabled: busy || pending, onClick: () => login(false) }, pending && !device ? 'Waiting for authorization…' : 'Sign in'),
-                  h(Button, { className: 'codexDeviceButton', variant: 'outline', disabled: busy || pending, onClick: () => { void deviceLogin() } }, 'Use device code'),
+                  h(Button, { variant: 'primary', disabled: busy || pending, onClick: () => login(false) }, pending && !device ? t('waitingAuthorization') : t('signIn')),
+                  h(Button, { className: 'codexDeviceButton', variant: 'outline', disabled: busy || pending, onClick: () => { void deviceLogin() } }, t('deviceCode')),
                 ),
                 device
                   ? h('div', { className: 'codexDevice' },
                       h('div', { className: 'codexDeviceText' },
-                        h('span', { className: 'codexDeviceLabel' }, 'Enter this code at OpenAI'),
+                        h('span', { className: 'codexDeviceLabel' }, t('deviceEnter')),
                         h('strong', { className: 'codexDeviceCode' }, device.userCode),
                       ),
-                      h('a', { className: 'codexDeviceLink', href: device.url, target: '_blank', rel: 'noreferrer' }, 'Open sign-in page'),
+                      h('a', { className: 'codexDeviceLink', href: device.url, target: '_blank', rel: 'noreferrer' }, t('deviceOpen')),
                     )
                   : null,
               ),
-        status && status.loginError ? h('p', { className: 'codexError', role: 'alert' }, 'Sign-in failed: ' + status.loginError) : null,
+        status && status.loginError ? h('p', { className: 'codexError', role: 'alert' }, t('signInFailed', { error: status.loginError })) : null,
         error ? h('p', { className: 'codexError', role: 'alert' }, error) : null,
       )
     }
@@ -436,6 +541,7 @@ window.__ModuleLoader__.load({
     }
 
     function ImageToolView(props) {
+      const t = props && typeof props.t === 'function' ? props.t : fallbackTranslate
       const block = props.block
       const [showGeneratedImages] = usePreference('showGeneratedImages', true)
       const settled = Boolean(block && block.kind === 'tool-result')
@@ -454,7 +560,7 @@ window.__ModuleLoader__.load({
         if (!attachment || typeof resolver.current !== 'function') return () => { active = false }
         Promise.resolve(resolver.current(attachment))
           .then((url) => {
-            if (typeof url !== 'string' || url.length === 0) throw new Error('Preview is unavailable.')
+            if (typeof url !== 'string' || url.length === 0) throw new Error(t('previewUnavailable'))
             if (active) setPreview(url)
           })
           .catch((reason) => { if (active) setPreviewError(messageOf(reason)) })
@@ -464,20 +570,20 @@ window.__ModuleLoader__.load({
       if (!showGeneratedImages) return null
 
       const failed = Boolean(failure || previewError)
-      const state = failed ? 'Failed' : preview ? 'Ready' : settled && attachment ? 'Loading preview' : 'Generating'
+      const state = failed ? t('imageFailed') : preview ? t('imageReady') : settled && attachment ? t('imageLoading') : t('imageGenerating')
       return h('section', { className: 'codexImageTool', 'aria-busy': !failed && !preview },
         h('div', { className: 'codexImageHeader' },
           h('span', { className: 'codexImageMark', 'aria-hidden': true }, h(SparkleIcon)),
           h('div', { className: 'codexImageHeading' },
-            h('strong', null, 'Image generation'),
+            h('strong', null, t('imageGeneration')),
             h('span', { role: 'status' }, state),
           ),
-          props.inspect ? h('button', { type: 'button', className: 'codexImageInspect', onClick: props.inspect }, 'Details') : null,
+          props.inspect ? h('button', { type: 'button', className: 'codexImageInspect', onClick: props.inspect }, t('details')) : null,
         ),
         prompt ? h('p', { className: 'codexImagePrompt' }, prompt) : null,
         preview
-          ? h('a', { className: 'codexImagePreviewLink', href: preview, target: '_blank', rel: 'noreferrer', title: 'Open full image' },
-              h('img', { className: 'codexImagePreview', src: preview, alt: prompt || 'Generated image', width: attachment.width, height: attachment.height }),
+          ? h('a', { className: 'codexImagePreviewLink', href: preview, target: '_blank', rel: 'noreferrer', title: t('openFullImage') },
+              h('img', { className: 'codexImagePreview', src: preview, alt: prompt || t('generatedImage'), width: attachment.width, height: attachment.height }),
             )
           : failed
             ? h('p', { className: 'codexImageError', role: 'alert' }, failure || previewError)
@@ -485,14 +591,17 @@ window.__ModuleLoader__.load({
       )
     }
 
-    const inject = ['slots', 'conversation']
+    const inject = ['slots', 'conversation', 'locale']
     function apply(ctx) {
+      ctx.effect(() => ctx.locale.register(LOCALE_NS, { zh: LOCALE_ZH, en: LOCALE_EN }), 'openai-codex: dictionaries')
+      const t = ctx.locale.bind(LOCALE_NS)
       installNavLogoObserver()
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'openai-codex',
         order: 11,
-        label: () => 'OpenAI Codex',
+        label: () => t('nav'),
+        locale: LOCALE_NS,
       }, CodexSection))
       ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
         name: 'tool.call.toolview',
@@ -500,6 +609,7 @@ window.__ModuleLoader__.load({
         inject: (sessionId) => ({
           resolveImage: (attachment) => ctx.conversation.resolveImage(sessionId, attachment),
         }),
+        locale: LOCALE_NS,
       }, ImageToolView))
     }
 

@@ -10,6 +10,7 @@ Lets you manage your pool of OpenAI subscriptions in DSH.
 
 - Websearch
 - Image Generation
+- Chinese UI follows the language selected in DSH
 
 ## Install the DeepSeek Harness Codex plugin
 
