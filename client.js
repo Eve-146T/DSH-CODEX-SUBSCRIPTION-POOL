@@ -187,7 +187,7 @@ window.__ModuleLoader__.load({
       if (!enabled) return
       const candidates = new Set([
         ...document.querySelectorAll('[data-model-id],[data-model],[role="option"][data-value]'),
-        ...document.querySelectorAll('.modelName'),
+        ...document.querySelectorAll('.modelName,[class*="modelName"]'),
       ])
       candidates.forEach((node) => {
         const value = modelValue(node)
