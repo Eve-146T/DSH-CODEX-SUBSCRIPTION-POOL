@@ -123,6 +123,8 @@ describe('settings UI integration', () => {
     expect(client).toContain('if (!showGeneratedImages) return null')
     expect(client).toContain("usePreference('emailPrivacy', false)")
     expect(client).toContain("usePreference('hideUselessModels', true)")
+    expect(client).toContain("(?:gpt-)?6")
+    expect(client).toContain("(?:^|-)astra(?:-|$)")
     expect(client).toContain("className: 'codexMeterFill ' + health")
     expect(client).not.toContain("h('h2', { className: 'codexTitle' }")
     expect(client).not.toContain("className: 'codexIntro'")

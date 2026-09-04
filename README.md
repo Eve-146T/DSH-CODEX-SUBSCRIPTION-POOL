@@ -11,6 +11,8 @@ Lets you manage your pool of OpenAI subscriptions in DSH.
 - Websearch
 - Image Generation
 - Chinese UI follows the language selected in DSH
+- Model filtering recognizes GPT-6/Astra rollout entries without changing the
+  currently selected model
 
 ## Install the DeepSeek Harness Codex plugin
 
