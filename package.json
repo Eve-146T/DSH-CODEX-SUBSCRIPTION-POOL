@@ -1,7 +1,7 @@
 {
   "name": "dsh-openai-codex-auth",
-  "version": "0.5.7",
-  "description": "DeepSeek Harness plugin for multi-account OpenAI Codex OAuth, usage, web search, and image generation",
+  "version": "0.5.11",
+  "description": "DeepSeek Harness plugin for OpenAI Codex OAuth, pooled accounts, model awareness, official docs, web search, and image generation",
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
@@ -9,23 +9,49 @@
   },
   "homepage": "https://github.com/Eve-146T/DSH-CODEX-SUBSCRIPTION-POOL#readme",
   "bugs": "https://github.com/Eve-146T/DSH-CODEX-SUBSCRIPTION-POOL/issues",
-  "keywords": ["deepseek-harness", "deepseek-harness-plugin", "dsh-plugin", "openai", "codex", "oauth", "chatgpt", "image-generation", "web-search"],
+  "keywords": [
+    "deepseek-harness",
+    "deepseek-harness-plugin",
+    "dsh-plugin",
+    "openai",
+    "codex",
+    "oauth",
+    "chatgpt",
+    "image-generation",
+    "web-search"
+  ],
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
-    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
-    "./image-tool": { "types": "./lib/image-tool.d.ts", "default": "./lib/image-tool.js" },
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./image-tool": {
+      "types": "./lib/image-tool.d.ts",
+      "default": "./lib/image-tool.js"
+    },
+    "./model-awareness": {
+      "types": "./lib/model-awareness.d.ts",
+      "default": "./lib/model-awareness.js"
+    },
     "./client": "./client.js",
     "./package.json": "./package.json"
   },
-  "files": ["lib", "client.js", "cordis.patch.yml", "README.md", "LICENSE", "NOTICE"],
-  "scripts": {
-    "build": "tsc",
-    "test": "vitest run"
-  },
+  "files": [
+    "lib",
+    "skills",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
@@ -46,15 +72,24 @@
     "@deepseek-ai/dsh-atomic-write": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-credentials": "^0.1.0-rc.6",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-attachment": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-credentials": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-llm": "^0.1.0-rc.7",
+    "@deepseek-ai/dsh-skill": "^0.1.0-rc.7",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.7",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
     "@types/node": "^22.20.0",
+    "@types/ws": "^8.5.14",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
   }
 }

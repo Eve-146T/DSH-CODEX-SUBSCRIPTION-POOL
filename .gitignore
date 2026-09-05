@@ -9,3 +9,6 @@ openai-codex-auth.json
 lib/*
 !lib/index.js
 !lib/index.d.ts
+
+!lib/model-awareness.js
+!lib/model-awareness.d.ts

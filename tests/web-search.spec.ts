@@ -1,7 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeWebSearchEvents } from '../src/index.ts'
+import {
+  codexWebSocketUrl,
+  normalizeWebSearchEvents,
+  parseCodexWebSocketEvent,
+} from '../src/index.ts'
 
 describe('normalizeWebSearchEvents', () => {
+  it('uses the authenticated Responses endpoint over WebSocket', () => {
+    expect(codexWebSocketUrl()).toBe('wss://chatgpt.com/backend-api/codex/responses')
+    expect(codexWebSocketUrl('http://localhost:3080/codex/responses')).toBe('ws://localhost:3080/codex/responses')
+  })
+
+  it('parses JSON WebSocket events and ignores keepalives', () => {
+    expect(parseCodexWebSocketEvent(Buffer.from('{"type":"response.completed"}')))
+      .toEqual({ type: 'response.completed' })
+    expect(parseCodexWebSocketEvent(Buffer.from('keepalive'))).toBeUndefined()
+  })
+
   it('prefers cited sources, retains discovered URLs, and joins answer deltas', () => {
     expect(normalizeWebSearchEvents([
       { type: 'response.output_text.delta', delta: 'A short ' },

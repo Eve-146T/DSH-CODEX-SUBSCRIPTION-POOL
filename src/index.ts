@@ -8,6 +8,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { readFile, unlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import WebSocket from 'ws'
 
 const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
 const AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize'
@@ -25,6 +26,7 @@ const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
 const RESET_CREDITS_URL = 'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits'
 const RESET_CONSUME_URL = `${RESET_CREDITS_URL}/consume`
 const CODEX_RESPONSES_URL = 'https://chatgpt.com/backend-api/codex/responses'
+const CODEX_WEBSOCKET_BETA = 'responses_websockets=2026-02-06'
 const SEARCH_MODEL = 'gpt-5.4-mini'
 const SEARCH_PROVIDER_ID = 'openai-codex'
 const USAGE_CACHE_MS = 30_000
@@ -409,6 +411,83 @@ async function readSseEvents(response: Response, maxBytes: number, operation: st
   return events
 }
 
+/** Convert the authenticated Codex Responses endpoint to its WebSocket form. */
+export function codexWebSocketUrl(endpoint: string = CODEX_RESPONSES_URL): string {
+  const url = new URL(endpoint)
+  if (url.protocol === 'https:') url.protocol = 'wss:'
+  else if (url.protocol === 'http:') url.protocol = 'ws:'
+  else throw new Error(`OpenAI WebSocket endpoint must use HTTP(S), got ${url.protocol}`)
+  return url.toString()
+}
+
+function completedResponseEvent(value: unknown): boolean {
+  return value !== null && typeof value === 'object'
+    && ['response.completed', 'response.failed', 'response.incomplete', 'response.cancelled']
+      .includes((value as { type?: unknown }).type as string)
+}
+
+/** Decode a single JSON event sent by the Codex Responses WebSocket. */
+export function parseCodexWebSocketEvent(value: Buffer | ArrayBuffer | Buffer[]): unknown | undefined {
+  const text = Buffer.isBuffer(value)
+    ? value.toString('utf8')
+    : value instanceof ArrayBuffer
+      ? Buffer.from(value).toString('utf8')
+      : Buffer.concat(value).toString('utf8')
+  try { return JSON.parse(text) as unknown } catch { return undefined }
+}
+
+async function readWebSocketEvents(
+  url: string,
+  headers: Record<string, string>,
+  body: Record<string, unknown>,
+  signal: AbortSignal | undefined,
+  maxBytes: number,
+  operation: string,
+): Promise<unknown[]> {
+  if (signal?.aborted) throw signal.reason ?? new Error(`OpenAI ${operation} was cancelled.`)
+  return new Promise<unknown[]>((resolveEvents, rejectEvents) => {
+    const socket = new WebSocket(url, { headers, maxPayload: maxBytes })
+    const events: unknown[] = []
+    let bytes = 0
+    let settled = false
+    const cleanup = (): void => { signal?.removeEventListener('abort', cancelled) }
+    const settle = (error?: unknown): void => {
+      if (settled) return
+      settled = true
+      cleanup()
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.terminate()
+      if (error === undefined) resolveEvents(events)
+      else rejectEvents(error)
+    }
+    const cancelled = (): void => settle(signal?.reason ?? new Error(`OpenAI ${operation} was cancelled.`))
+
+    signal?.addEventListener('abort', cancelled, { once: true })
+    socket.once('error', error => settle(error))
+    socket.once('unexpected-response', (_request, response) => {
+      settle(new Error(`OpenAI Codex ${operation} WebSocket failed (HTTP ${response.statusCode ?? 'unknown'})`))
+    })
+    socket.once('open', () => {
+      try { socket.send(JSON.stringify({ type: 'response.create', ...body })) } catch (error) { settle(error) }
+    })
+    socket.on('message', (data: Buffer | ArrayBuffer | Buffer[]) => {
+      bytes += Buffer.isBuffer(data)
+        ? data.byteLength
+        : data instanceof ArrayBuffer ? data.byteLength : data.reduce((total, chunk) => total + chunk.byteLength, 0)
+      if (bytes > maxBytes) {
+        settle(new Error(`OpenAI ${operation} response exceeded the safety limit.`))
+        return
+      }
+      const event = parseCodexWebSocketEvent(data)
+      if (event === undefined) return
+      events.push(event)
+      if (completedResponseEvent(event)) settle()
+    })
+    socket.once('close', (code, reason) => {
+      if (!settled) settle(new Error(`OpenAI Codex ${operation} WebSocket closed before completion (${code}): ${reason.toString()}`))
+    })
+  })
+}
+
 function delay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolveDelay, rejectDelay) => {
     if (signal.aborted) { rejectDelay(signal.reason ?? new Error('OpenAI login cancelled')); return }
@@ -502,7 +581,7 @@ export class OpenAICodexAuth extends Service {
     return (await this.credential(signal))?.access
   }
 
-  /** Send one authenticated streaming request to the ChatGPT Codex Responses endpoint. */
+  /** Send one authenticated Responses request, preferring WebSocket transport with SSE fallback. */
   async responses(
     body: Record<string, unknown>,
     signal: AbortSignal | undefined,
@@ -511,16 +590,28 @@ export class OpenAICodexAuth extends Service {
   ): Promise<unknown[]> {
     const credential = await this.credential(signal)
     if (credential === undefined) throw new Error(`Sign in with OpenAI before using ${operation}.`)
+    const sharedHeaders = {
+      authorization: `Bearer ${credential.access}`,
+      'chatgpt-account-id': credential.accountId,
+      originator: 'deepseek-harness',
+      'user-agent': 'deepseek-harness-openai-codex-auth/0.5',
+    }
+    try {
+      return await readWebSocketEvents(codexWebSocketUrl(), {
+        ...sharedHeaders,
+        'openai-beta': CODEX_WEBSOCKET_BETA,
+      }, body, signal, maxBytes, operation)
+    } catch (error) {
+      if (signal?.aborted) throw error
+      this.ctx.logger.warn(`openai-codex-auth: ${operation} WebSocket failed; retrying with SSE: ${String(error)}`)
+    }
     const response = await fetch(CODEX_RESPONSES_URL, {
       method: 'POST',
       headers: {
         accept: 'text/event-stream',
-        authorization: `Bearer ${credential.access}`,
-        'chatgpt-account-id': credential.accountId,
+        ...sharedHeaders,
         'content-type': 'application/json',
         'openai-beta': 'responses=experimental',
-        originator: 'deepseek-harness',
-        'user-agent': 'deepseek-harness-openai-codex-auth/0.5',
       },
       body: JSON.stringify(body),
       ...signal === undefined ? {} : { signal },

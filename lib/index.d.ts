@@ -77,6 +77,10 @@ export declare function availableResetCreditId(value: unknown): string | undefin
 export declare function normalizeUsage(value: unknown): UsageSummary;
 /** Convert OpenAI Responses streaming events into DSH's provider-neutral search result. */
 export declare function normalizeWebSearchEvents(events: readonly unknown[]): WebSearchResult;
+/** Convert the authenticated Codex Responses endpoint to its WebSocket form. */
+export declare function codexWebSocketUrl(endpoint?: string): string;
+/** Decode a single JSON event sent by the Codex Responses WebSocket. */
+export declare function parseCodexWebSocketEvent(value: Buffer | ArrayBuffer | Buffer[]): unknown | undefined;
 declare module '@deepseek-ai/cordis' {
     interface Context {
         openaiCodexAuth: OpenAICodexAuth;
@@ -101,7 +105,7 @@ export declare class OpenAICodexAuth extends Service {
     credential(signal?: AbortSignal, requestedAccountId?: string): Promise<OpenAICodexCredential | undefined>;
     /** Return a valid bearer token for DSH's built-in Codex provider. */
     bearerToken(signal?: AbortSignal): Promise<string | undefined>;
-    /** Send one authenticated streaming request to the ChatGPT Codex Responses endpoint. */
+    /** Send one authenticated Responses request, preferring WebSocket transport with SSE fallback. */
     responses(body: Record<string, unknown>, signal: AbortSignal | undefined, maxBytes: number, operation: string): Promise<unknown[]>;
     private createLoginRequest;
     private finishLogin;
