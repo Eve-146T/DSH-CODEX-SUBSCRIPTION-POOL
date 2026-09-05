@@ -33,6 +33,10 @@ window.__ModuleLoader__.load({
       hideModels: 'Hide useless models',
       emailPrivacy: 'Email privacy',
       showImages: 'Show generated images in threads',
+      catalogTitle: 'OpenAI Codex models',
+      catalogLoading: 'Loading available models…',
+      catalogEmpty: 'No models are currently available from this provider.',
+      catalogFailed: 'Could not load the available models.',
       loading: 'Loading',
       waitingAuthorization: 'Waiting for authorization…',
       addAccount: 'Add another account',
@@ -76,6 +80,10 @@ window.__ModuleLoader__.load({
       hideModels: '隐藏无用模型',
       emailPrivacy: '邮箱隐私',
       showImages: '在对话中显示生成的图像',
+      catalogTitle: 'OpenAI Codex 模型',
+      catalogLoading: '正在加载可用模型…',
+      catalogEmpty: '此提供商当前没有可用模型。',
+      catalogFailed: '无法加载可用模型。',
       loading: '加载中',
       waitingAuthorization: '等待授权…',
       addAccount: '添加其他账户',
@@ -117,6 +125,7 @@ window.__ModuleLoader__.load({
       .codexAccountRight{display:flex;grid-column:3;min-width:0;margin-left:12px;flex-direction:column;gap:12px}.codexMeter{min-width:0}.codexMeterCopy{display:flex;align-items:center;justify-content:flex-end;gap:18px;margin-bottom:7px}.codexMeterValue{font-size:13px;font-weight:600;white-space:nowrap}.codexMeterReset{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}.codexMeterTrack{height:7px;overflow:hidden;border-radius:99px;background:var(--dsw-alias-bg-skeleton)}.codexMeterFill{height:100%;min-width:3px;border-radius:inherit}.codexMeterFill.good{background:var(--dsw-alias-state-success-primary)}.codexMeterFill.warn{background:#f0a12b}.codexMeterFill.low{background:var(--dsw-alias-state-error-primary)}.codexMeterEmpty{color:var(--dsw-alias-label-tertiary);font-size:12px}.codexAccountActions{display:grid;grid-template-columns:118px 138px 98px;justify-content:end;gap:8px;min-width:0}.codexResetSlot{display:flex;width:118px;height:38px;align-items:center;justify-content:flex-end}.codexAccountAction{height:38px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;line-height:20px!important;white-space:nowrap!important}.codexActivate{width:138px!important;padding:0 10px!important}.codexActivate:disabled{opacity:.55}.codexDisconnect{box-sizing:border-box!important;width:98px!important;border:1px solid var(--dsw-alias-state-error-primary)!important;border-radius:19px!important;color:var(--dsw-alias-state-error-primary)!important;background:transparent!important;padding:0 12px!important}.codexDisconnect:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger)!important}.codexRedeem{width:118px!important;padding:0 10px!important;border-color:var(--dsw-alias-state-business-primary)!important;color:var(--dsw-alias-state-business-primary)!important}
       .codexError{margin:12px 0 0;color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:1.5;overflow-wrap:anywhere}.codexEmpty{margin:0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1.55}.codexSignInActions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;align-self:flex-start}.codexAddRow{display:flex;justify-content:flex-end;padding:15px 0 1px}.codexAddAccount{height:38px!important;padding:0 16px!important}.codexDeviceButton{border-color:var(--dsw-alias-border-l2)!important}.codexDevice{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--dsw-alias-border-l2)}.codexDeviceText{display:flex;min-width:0;flex:1;flex-direction:column;gap:2px}.codexDeviceLabel{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexDeviceCode{font:600 18px/24px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em}.codexDeviceLink{color:var(--dsw-alias-state-business-primary);font-size:13px;text-decoration:none}.codexDeviceLink:hover{text-decoration:underline}.codexSkeleton{height:8px;margin:12px 0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}
       .codexPreferences{margin-top:14px;padding-top:12px;border-top:1px solid var(--dsw-alias-border-l2)}.codexPreferencesTitle{margin:0;color:var(--dsw-alias-label-tertiary);font-size:11px;font-weight:700;line-height:18px;letter-spacing:.08em;text-transform:uppercase}.codexPreference{display:flex;min-height:42px;align-items:center;gap:14px;padding:2px 0}.codexPreference+.codexPreference{border-top:1px solid var(--dsw-alias-border-l2)}.codexPreferenceLabel{min-width:0;flex:1;font-size:14px;font-weight:500}.codexToggle{position:relative;width:38px;height:22px;flex:none;border:0;border-radius:99px;background:var(--dsw-alias-bg-skeleton);cursor:pointer}.codexToggle:after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .18s}.codexToggle[data-on=true]{background:var(--dsw-alias-state-business-primary)}.codexToggle[data-on=true]:after{transform:translateX(16px)}.codexToggle:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
+      .codexModelCatalog{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid var(--dsw-alias-border-l2)}.codexModelCatalogTitle{margin:0;color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:600;line-height:18px}.codexModelCatalogState{margin:0;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.codexModelCatalogList{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}.codexModelCatalogItem{max-width:100%;padding:3px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;color:var(--dsw-alias-label-secondary);font:12px/18px ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
       .codexImageTool{width:min(100%,680px);overflow:hidden;margin:10px 0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}.codexImageHeader{display:flex;align-items:center;gap:10px;padding:12px 14px}.codexImageMark{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:7px;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary)}.codexImageMark svg{display:block;width:18px;height:18px}.codexImageHeading{display:flex;min-width:0;flex:1;flex-direction:column}.codexImageHeading strong{font-size:13px;line-height:18px}.codexImageHeading span{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:17px}.codexImageInspect{appearance:none;padding:4px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer}.codexImagePrompt{margin:0;padding:0 14px 12px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.codexImagePreviewLink{display:block;line-height:0}.codexImagePreview{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-module-platform)}.codexImageLoading{height:180px;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}.codexImageError{margin:0;padding:10px 14px;border-top:1px solid var(--dsw-alias-state-error-secondary);color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}
       @keyframes codexPulse{to{opacity:.4}}@media(max-width:560px){.codexAccount{grid-template-columns:34px minmax(0,1fr);row-gap:7px;padding:8px 0}.codexAccountRight{grid-column:1/3;margin-left:0;gap:9px}.codexMeter,.codexMeterEmpty{margin-left:46px}.codexAccountActions{width:100%;grid-template-columns:minmax(0,1fr) 82px;justify-content:start;gap:6px}.codexAccountActions .codexActivate{width:100%!important;padding:0 7px!important;font-size:13px!important}.codexAccountActions .codexDisconnect{width:82px!important;padding:0 8px!important;font-size:13px!important}.codexResetSlot{grid-column:1/3;justify-content:flex-start}.codexResetSlot:empty{display:none}.codexAccountIdentity{white-space:normal;overflow-wrap:anywhere}.codexAddRow{justify-content:flex-end;padding-left:0}.codexDevice{align-items:flex-start;flex-direction:column;gap:7px}}@media(max-width:410px){.codexAccountActions{display:flex;flex-wrap:wrap}.codexResetSlot{width:100%}}
     `
@@ -173,6 +182,96 @@ window.__ModuleLoader__.load({
         || /(?:^|-)astra(?:-|$)/.test(model)
     }
 
+    let modelCatalogApi = null
+    let codexModels = []
+    let codexModelCatalogState = 'idle'
+    let codexModelCatalogError = ''
+    let codexModelCatalogRevision = 0
+    let modelCatalogTranslate = fallbackTranslate
+
+    function catalogText(key) {
+      return modelCatalogTranslate(key)
+    }
+
+    function codexProviderCard() {
+      const labels = [...document.querySelectorAll('span,div,strong')]
+        .filter((node) => node.childElementCount === 0 && String(node.textContent || '').trim().toLowerCase() === 'openai-codex')
+      for (const label of labels) {
+        const card = label.closest('li')
+        if (card !== null) return card
+      }
+      return null
+    }
+
+    function syncCodexModelCatalog() {
+      if (typeof document === 'undefined') return
+      const card = codexProviderCard()
+      if (card === null) return
+      let panel = card.querySelector('[data-codex-model-catalog]')
+      if (panel !== null && panel.getAttribute('data-codex-catalog-revision') === String(codexModelCatalogRevision)) return
+      if (panel === null) {
+        panel = document.createElement('section')
+        panel.className = 'codexModelCatalog'
+        panel.setAttribute('data-codex-model-catalog', 'true')
+        card.appendChild(panel)
+      }
+      panel.setAttribute('data-codex-catalog-revision', String(codexModelCatalogRevision))
+      panel.replaceChildren()
+      const title = document.createElement('h3')
+      title.className = 'codexModelCatalogTitle'
+      title.textContent = catalogText('catalogTitle')
+      panel.appendChild(title)
+      if (codexModelCatalogState === 'ready' && codexModels.length > 0) {
+        const list = document.createElement('ul')
+        list.className = 'codexModelCatalogList'
+        for (const model of codexModels) {
+          const item = document.createElement('li')
+          item.className = 'codexModelCatalogItem'
+          item.textContent = model.id
+          if (model.name && model.name !== model.id) item.title = model.name
+          list.appendChild(item)
+        }
+        panel.appendChild(list)
+        return
+      }
+      const state = document.createElement('p')
+      state.className = 'codexModelCatalogState'
+      state.textContent = codexModelCatalogState === 'loading'
+        ? catalogText('catalogLoading')
+        : codexModelCatalogState === 'error'
+          ? catalogText('catalogFailed')
+          : catalogText('catalogEmpty')
+      if (codexModelCatalogError) state.title = codexModelCatalogError
+      panel.appendChild(state)
+    }
+
+    async function refreshCodexModelCatalog() {
+      if (modelCatalogApi === null || codexModelCatalogState === 'loading') return
+      codexModelCatalogState = 'loading'
+      codexModelCatalogError = ''
+      codexModelCatalogRevision += 1
+      syncCodexModelCatalog()
+      try {
+        const response = await modelCatalogApi.llm.models({})
+        if (!response || !response.result || !response.result.ok) {
+          throw new Error(response && response.result && response.result.error ? response.result.error.message : 'Catalog request failed')
+        }
+        const groups = response.result.value && Array.isArray(response.result.value.groups) ? response.result.value.groups : []
+        const group = groups.find((entry) => entry && entry.id === 'openai-codex')
+        const models = group && Array.isArray(group.models) ? group.models : []
+        codexModels = models
+          .filter((model) => model && typeof model.id === 'string' && model.id.length > 0)
+          .map((model) => ({ id: model.id, name: typeof model.name === 'string' ? model.name : '' }))
+        codexModelCatalogState = 'ready'
+      } catch (error) {
+        codexModels = []
+        codexModelCatalogState = 'error'
+        codexModelCatalogError = messageOf(error)
+      }
+      codexModelCatalogRevision += 1
+      syncCodexModelCatalog()
+    }
+
     function modelValue(node) {
       return node.getAttribute('data-model-id') || node.getAttribute('data-model') || node.getAttribute('data-value') || node.textContent || ''
     }
@@ -215,6 +314,7 @@ window.__ModuleLoader__.load({
           target.style.setProperty('display', 'none', 'important')
         }
       })
+      syncCodexModelCatalog()
     }
 
     let modelFilterObserver = null
@@ -609,10 +709,15 @@ window.__ModuleLoader__.load({
       )
     }
 
-    const inject = ['slots', 'conversation', 'locale']
+    const inject = ['slots', 'conversation', 'locale', 'connection', 'remote']
     function apply(ctx) {
       ctx.effect(() => ctx.locale.register(LOCALE_NS, { zh: LOCALE_ZH, en: LOCALE_EN }), 'openai-codex: dictionaries')
       const t = ctx.locale.bind(LOCALE_NS)
+      modelCatalogTranslate = t
+      const connection = ctx.get('connection')
+      modelCatalogApi = connection && connection.api ? connection.api : null
+      void refreshCodexModelCatalog()
+      ctx.on('llm/adapters-updated', () => { void refreshCodexModelCatalog() })
       installNavLogoObserver()
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
