@@ -7,7 +7,7 @@ import {
   parseCredentialDocument,
   parseServiceTierSelection,
   serviceTierRequestValue,
-} from '../src/index.ts'
+} from '../lib/index.js'
 
 const credential = {
   access: 'access-token',
@@ -41,11 +41,11 @@ describe('multi-account credentials', () => {
 
   it('exposes explicit account activation, removal, and reset-redemption routes', () => {
     const source = readFileSync(fileURLToPath(new URL('../src/index.ts', import.meta.url)), 'utf8')
-    expect(source).toContain("url.pathname === '/accounts/remove'")
-    expect(source).toContain("url.pathname === '/accounts/activate'")
-    expect(source).toContain("url.pathname === '/accounts/redeem'")
+    expect(source).toContain("action === 'remove'")
+    expect(source).toContain("action === 'activate'")
+    expect(source).toContain('await this.redeemReset(id)')
     expect(source).toContain('redeem_request_id: randomUUID()')
-    expect(source).toContain("url.searchParams.get('add') === '1'")
+    expect(source).toContain('this.beginBrowserLogin(row.add === true)')
   })
 })
 
@@ -108,13 +108,15 @@ describe('settings UI integration', () => {
     expect(client).toContain('OPENAI_LOGO_PATH')
     expect(client).toContain('new MutationObserver(decorateNavLogo)')
     expect(client).toContain('installNavLogoObserver()')
-    expect(client).toContain('prefetchStatus()')
+    expect(client).toContain("accountRequest('status'")
     expect(client).toContain('useState(() => cachedStatus)')
     expect(client).toContain("className: 'codexConnectedDot'")
     expect(client).toContain("variant: 'outline', size: 'md'")
     expect(client).toContain("'Add another account'")
     expect(client).toContain("'Activate account'")
-    expect(client).toContain("'/accounts/' + action")
+    expect(client).toContain('accountRequest(action, { accountId })')
+    expect(client).toContain("ownerConnection.rpc.call('/api', 'openaiCodexAuth/account'")
+    expect(client).not.toContain('127.0.0.1:1456')
     expect(client).toContain("className: 'codexAccountIdentity'")
     expect(client).toContain('.codexAccountMeta{display:flex;align-items:center')
     expect(client).toContain('align-items:center!important;justify-content:center!important')

@@ -8,7 +8,15 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const { createElement: h, useCallback, useEffect, useRef, useState } = React
     const { Button } = require('@deepseek-ai/dsh-client-ui-primitives')
-    const BASE = 'http://127.0.0.1:1456'
+    let connection = null
+    async function accountRequest(action, input = {}) {
+      if (connection === null) throw new Error('DSH connection is not ready.')
+      const ownerConnection = connection
+      const result = await ownerConnection.rpc.call('/api', 'openaiCodexAuth/account', { args: { action, input } })
+      if (connection !== ownerConnection) throw new Error('DSH connection changed. Reopen the account page.')
+      if (!result.ok) throw new Error(result.error.message)
+      return result.value
+    }
     const PLUGIN_ID = 'dsh-openai-codex-auth'
     const LOCALE_NS = 'settings.openai-codex'
     const PREFERENCE_PREFIX = PLUGIN_ID + '.preference.'
@@ -46,7 +54,8 @@ window.__ModuleLoader__.load({
       deviceCode: 'Use device code',
       deviceEnter: 'Enter this code at OpenAI',
       deviceOpen: 'Open sign-in page',
-      connectError: 'Could not connect to the local Codex plugin service. Restart the DSH Web profile and try again.',
+      connectError: 'Could not load Codex accounts. Check the DSH connection and try again.',
+      accountStateUnavailable: 'The active account could not be confirmed. Select an account again before sending requests.',
       popupBlocked: 'Your browser blocked the sign-in window. Allow pop-ups for this site and try again.',
       redeemConfirm: 'Redeem one usage limit reset for this account?',
       signInFailed: 'Sign-in failed: {error}',
@@ -93,7 +102,8 @@ window.__ModuleLoader__.load({
       deviceCode: '使用设备码',
       deviceEnter: '在 OpenAI 输入此代码',
       deviceOpen: '打开登录页面',
-      connectError: '无法连接到本地 Codex 插件服务。请重启 DSH Web 配置文件并重试。',
+      connectError: '无法加载 Codex 账户，请检查 DSH 连接后重试',
+      accountStateUnavailable: '无法确认当前账户，请重新选择账户后再发送请求',
       popupBlocked: '浏览器阻止了登录窗口。请允许此网站弹出窗口后重试。',
       redeemConfirm: '要为此账户兑换一个使用额度重置吗？',
       signInFailed: '登录失败：{error}',
@@ -129,11 +139,12 @@ window.__ModuleLoader__.load({
       .codexImageTool{width:min(100%,680px);overflow:hidden;margin:10px 0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}.codexImageHeader{display:flex;align-items:center;gap:10px;padding:12px 14px}.codexImageMark{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:7px;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary)}.codexImageMark svg{display:block;width:18px;height:18px}.codexImageHeading{display:flex;min-width:0;flex:1;flex-direction:column}.codexImageHeading strong{font-size:13px;line-height:18px}.codexImageHeading span{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:17px}.codexImageInspect{appearance:none;padding:4px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer}.codexImagePrompt{margin:0;padding:0 14px 12px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.codexImagePreviewLink{display:block;line-height:0}.codexImagePreview{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-module-platform)}.codexImageLoading{height:180px;border-top:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-skeleton);animation:codexPulse 1.2s ease-in-out infinite alternate}.codexImageError{margin:0;padding:10px 14px;border-top:1px solid var(--dsw-alias-state-error-secondary);color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}
       @keyframes codexPulse{to{opacity:.4}}@media(max-width:560px){.codexAccount{grid-template-columns:34px minmax(0,1fr);row-gap:7px;padding:8px 0}.codexAccountRight{grid-column:1/3;margin-left:0;gap:9px}.codexMeter,.codexMeterEmpty{margin-left:46px}.codexAccountActions{width:100%;grid-template-columns:minmax(0,1fr) 82px;justify-content:start;gap:6px}.codexAccountActions .codexActivate{width:100%!important;padding:0 7px!important;font-size:13px!important}.codexAccountActions .codexDisconnect{width:82px!important;padding:0 8px!important;font-size:13px!important}.codexResetSlot{grid-column:1/3;justify-content:flex-start}.codexResetSlot:empty{display:none}.codexAccountIdentity{white-space:normal;overflow-wrap:anywhere}.codexAddRow{justify-content:flex-end;padding-left:0}.codexDevice{align-items:flex-start;flex-direction:column;gap:7px}}@media(max-width:410px){.codexAccountActions{display:flex;flex-wrap:wrap}.codexResetSlot{width:100%}}
     `
-    if (typeof document !== 'undefined' && document.querySelector('style[data-plugin="' + PLUGIN_ID + '"]') === null) {
+    function installStyle() {
       const style = document.createElement('style')
       style.dataset.plugin = PLUGIN_ID
       style.textContent = css
       document.head.appendChild(style)
+      return () => style.remove()
     }
 
     function messageOf(error) {
@@ -182,7 +193,6 @@ window.__ModuleLoader__.load({
         || /(?:^|-)astra(?:-|$)/.test(model)
     }
 
-    let modelCatalogApi = null
     let codexModels = []
     let codexModelCatalogState = 'idle'
     let codexModelCatalogError = ''
@@ -246,24 +256,22 @@ window.__ModuleLoader__.load({
     }
 
     async function refreshCodexModelCatalog() {
-      if (modelCatalogApi === null || codexModelCatalogState === 'loading') return
+      if (connection === null || codexModelCatalogState === 'loading') return
+      const ownerConnection = connection
       codexModelCatalogState = 'loading'
       codexModelCatalogError = ''
       codexModelCatalogRevision += 1
       syncCodexModelCatalog()
       try {
-        const response = await modelCatalogApi.llm.models({})
-        if (!response || !response.result || !response.result.ok) {
-          throw new Error(response && response.result && response.result.error ? response.result.error.message : 'Catalog request failed')
-        }
-        const groups = response.result.value && Array.isArray(response.result.value.groups) ? response.result.value.groups : []
-        const group = groups.find((entry) => entry && entry.id === 'openai-codex')
-        const models = group && Array.isArray(group.models) ? group.models : []
+        const response = await accountRequest('models')
+        if (connection !== ownerConnection) return
+        const models = Array.isArray(response.models) ? response.models : []
         codexModels = models
           .filter((model) => model && typeof model.id === 'string' && model.id.length > 0)
           .map((model) => ({ id: model.id, name: typeof model.name === 'string' ? model.name : '' }))
         codexModelCatalogState = 'ready'
       } catch (error) {
+        if (connection !== ownerConnection) return
         codexModels = []
         codexModelCatalogState = 'error'
         codexModelCatalogError = messageOf(error)
@@ -330,12 +338,6 @@ window.__ModuleLoader__.load({
       modelFilterObserver.observe(document.body, { childList: true, subtree: true })
     }
 
-    if (typeof window !== 'undefined') {
-      window.setTimeout(() => setModelFilter(readPreference('hideUselessModels', true)), 0)
-      window.addEventListener('storage', (event) => {
-        if (event.key === PREFERENCE_PREFIX + 'hideUselessModels') setModelFilter(readPreference('hideUselessModels', true))
-      })
-    }
 
     function turnLogo(event) {
       const node = event.currentTarget
@@ -345,25 +347,13 @@ window.__ModuleLoader__.load({
     }
 
     let cachedStatus = null
-    let initialStatusRequest = null
 
     async function requestStatus(refresh) {
-      const response = await fetch(BASE + '/status' + (refresh ? '?refresh=1' : ''), { cache: 'no-store' })
-      const value = await response.json()
-      if (!response.ok) throw new Error(value.error || 'HTTP ' + response.status)
+      const value = await accountRequest('status', { refresh: Boolean(refresh) })
       cachedStatus = value
       return value
     }
 
-    function prefetchStatus() {
-      if (cachedStatus !== null) return Promise.resolve(cachedStatus)
-      if (initialStatusRequest === null) {
-        initialStatusRequest = requestStatus(false).finally(() => { initialStatusRequest = null })
-      }
-      return initialStatusRequest
-    }
-
-    if (typeof window !== 'undefined') void prefetchStatus().catch(() => {})
 
     function OpenAILogo(props) {
       return h('svg', { className: props && props.className, viewBox: '0 0 100 100', fill: 'currentColor', 'aria-hidden': true }, h('path', { d: OPENAI_LOGO_PATH }))
@@ -375,11 +365,15 @@ window.__ModuleLoader__.load({
       )
     }
 
+    const navIcons = new Map()
     function decorateNavLogo() {
       const button = [...document.querySelectorAll('button')].find((candidate) => candidate.textContent.trim() === 'OpenAI Codex')
       if (!button) return
       const originalIcon = button.querySelector('svg:not(.codexNavLogo)')
-      if (originalIcon) originalIcon.style.display = 'none'
+      if (originalIcon) {
+        if (!navIcons.has(originalIcon)) navIcons.set(originalIcon, originalIcon.style.display)
+        originalIcon.style.display = 'none'
+      }
       if (button.querySelector('.codexNavLogo')) return
       const logo = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
       logo.setAttribute('class', 'codexNavLogo')
@@ -516,13 +510,13 @@ window.__ModuleLoader__.load({
 
       const load = useCallback(async (refresh) => {
         try {
-          const value = !refresh && initialStatusRequest !== null ? await initialStatusRequest : await requestStatus(refresh)
+          const value = await requestStatus(refresh)
           setStatus(value)
-          setError('')
+          setError(value.accountStateUnavailable ? t('accountStateUnavailable') : '')
           if (value.loginPending) sawLoginPending.current = true
           const accountCount = Array.isArray(value.accounts) ? value.accounts.length : 0
           if (expectedAccountCount.current > 0
-            && (accountCount >= expectedAccountCount.current || (sawLoginPending.current && !value.loginPending))) {
+            && (value.loginError || accountCount >= expectedAccountCount.current || (sawLoginPending.current && !value.loginPending))) {
             expectedAccountCount.current = 0
             sawLoginPending.current = false
             setWatchLogin(false)
@@ -539,14 +533,22 @@ window.__ModuleLoader__.load({
         return () => { window.clearInterval(timer) }
       }, [load, watchLogin])
 
-      const login = (addAnother) => {
-        setDevice(null)
-        expectedAccountCount.current = (status && Array.isArray(status.accounts) ? status.accounts.length : 0) + 1
-        sawLoginPending.current = false
-        const popup = window.open(BASE + '/start' + (addAnother ? '?add=1' : ''), 'dsh-openai-codex-login', 'popup,width=560,height=760')
-        if (popup === null) setError(t('popupBlocked'))
-        setWatchLogin(true)
-        window.setTimeout(() => { void load(false) }, 1000)
+      const login = async (addAnother) => {
+        const popup = window.open('about:blank', 'dsh-openai-codex-login', 'popup,width=560,height=760')
+        if (popup === null) { setError(t('popupBlocked')); return }
+        setBusy(true)
+        try {
+          setDevice(null)
+          expectedAccountCount.current = (status && Array.isArray(status.accounts) ? status.accounts.length : 0) + 1
+          sawLoginPending.current = false
+          const value = await accountRequest('start', { add: Boolean(addAnother) })
+          popup.location.href = value.url
+          setWatchLogin(true)
+          setError('')
+        } catch (loginError) {
+          popup.close()
+          setError(messageOf(loginError))
+        } finally { setBusy(false) }
       }
 
       const deviceLogin = async () => {
@@ -554,9 +556,7 @@ window.__ModuleLoader__.load({
         try {
           expectedAccountCount.current = (status && Array.isArray(status.accounts) ? status.accounts.length : 0) + 1
           sawLoginPending.current = false
-          const response = await fetch(BASE + '/start-device', { cache: 'no-store' })
-          const value = await response.json()
-          if (!response.ok) throw new Error(value.error || 'HTTP ' + response.status)
+          const value = await accountRequest('start-device')
           setDevice(value)
           setWatchLogin(true)
           setError('')
@@ -565,16 +565,10 @@ window.__ModuleLoader__.load({
       }
 
       const accountAction = async (action, accountId) => {
-        if (!status || !status.csrf) return
+        if (!status) return
         setBusy(true)
         try {
-          const response = await fetch(BASE + '/accounts/' + action, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', 'x-dsh-csrf': status.csrf },
-            body: JSON.stringify({ accountId }),
-          })
-          const value = await response.json()
-          if (!response.ok) throw new Error(value.error || 'HTTP ' + response.status)
+          await accountRequest(action, { accountId })
           cachedStatus = null
           await load(false)
         } catch (actionError) { setError(messageOf(actionError)) }
@@ -709,16 +703,53 @@ window.__ModuleLoader__.load({
       )
     }
 
-    const inject = ['slots', 'conversation', 'locale', 'connection', 'remote']
+    const inject = ['slots', 'sessions', 'remote.session', 'locale', 'connection']
     function apply(ctx) {
+      ctx.effect(installStyle)
+      ctx.effect(() => {
+        const onStorage = (event) => {
+          if (event.key === PREFERENCE_PREFIX + 'hideUselessModels') setModelFilter(readPreference('hideUselessModels', true))
+        }
+        setModelFilter(readPreference('hideUselessModels', true))
+        window.addEventListener('storage', onStorage)
+        return () => {
+          window.removeEventListener('storage', onStorage)
+          setModelFilter(false)
+          document.querySelectorAll('[data-codex-model-catalog]').forEach(node => node.remove())
+        }
+      })
       ctx.effect(() => ctx.locale.register(LOCALE_NS, { zh: LOCALE_ZH, en: LOCALE_EN }), 'openai-codex: dictionaries')
       const t = ctx.locale.bind(LOCALE_NS)
       modelCatalogTranslate = t
-      const connection = ctx.get('connection')
-      modelCatalogApi = connection && connection.api ? connection.api : null
+      const imageUrls = new Map()
+      let disposed = false
+      const loadImage = async (sessionId, attachment) => {
+        const session = ctx.sessions.binding(sessionId)?.session
+        if (session === undefined) throw new Error(t('previewUnavailable'))
+        const result = await session.readAttachment(attachment)
+        if (!result.ok) throw new Error(result.error.message)
+        if (disposed) throw new Error(t('previewUnavailable'))
+        const bytes = Uint8Array.from(result.value.data)
+        const url = URL.createObjectURL(new Blob([bytes.buffer], { type: result.value.attachment.mediaType }))
+        imageUrls.set(url, true)
+        return url
+      }
+      ctx.effect(() => () => { disposed = true; for (const url of imageUrls.keys()) URL.revokeObjectURL(url); imageUrls.clear() })
+      connection = ctx.connection
+      ctx.effect(() => () => { connection = null; cachedStatus = null; codexModelCatalogState = 'idle' })
       void refreshCodexModelCatalog()
       ctx.on('llm/adapters-updated', () => { void refreshCodexModelCatalog() })
-      installNavLogoObserver()
+      ctx.effect(() => {
+        installNavLogoObserver()
+        return () => {
+          document.removeEventListener('DOMContentLoaded', installNavLogoObserver)
+          if (navLogoObserver !== null) navLogoObserver.disconnect()
+          navLogoObserver = null
+          for (const [node, display] of navIcons) node.style.display = display
+          navIcons.clear()
+          document.querySelectorAll('.codexNavLogo').forEach(node => node.remove())
+        }
+      })
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'openai-codex',
@@ -730,7 +761,8 @@ window.__ModuleLoader__.load({
         name: 'tool.call.toolview',
         key: 'image_gen',
         inject: (sessionId) => ({
-          resolveImage: (attachment) => ctx.conversation.resolveImage(sessionId, attachment),
+          resolveImage: (attachment) => loadImage(sessionId, attachment),
+          t,
         }),
         locale: LOCALE_NS,
       }, ImageToolView))

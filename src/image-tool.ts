@@ -2,8 +2,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { AttachmentIdType, ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
-import { mkdir, open } from 'node:fs/promises'
-import { dirname, extname, relative, resolve } from 'node:path'
 
 const IMAGE_MODEL = 'gpt-5.6-sol'
 const MAX_IMAGE_RESPONSE_BYTES = 64 * 1024 * 1024
@@ -25,7 +23,6 @@ interface ImageGenerationArgs {
   prompt: string
   size?: ImageSize
   quality?: ImageQuality
-  output_path?: string
 }
 
 function generatedImage(value: unknown): GeneratedImage | undefined {
@@ -101,31 +98,6 @@ function decodeImage(value: string): Buffer {
   return data
 }
 
-function safeOutputPath(exec: { agent?: { session?: { header?: { cwd?: unknown } } } }, requested: string): string {
-  const cwd = exec.agent?.session?.header?.cwd
-  if (typeof cwd !== 'string' || cwd.length === 0) {
-    throw new Error('A session workspace is required when output_path is set.')
-  }
-  const workspace = resolve(cwd)
-  const output = resolve(workspace, requested)
-  const fromWorkspace = relative(workspace, output)
-  if (fromWorkspace === '..' || fromWorkspace.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)
-    || resolve(output) === workspace) {
-    throw new Error('output_path must name a PNG file inside the current session workspace.')
-  }
-  if (extname(output).toLowerCase() !== '.png') throw new Error('output_path must end in .png.')
-  return output
-}
-
-async function saveWorkspaceImage(path: string, data: Buffer): Promise<void> {
-  await mkdir(dirname(path), { recursive: true })
-  const file = await open(path, 'wx', 0o644).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === 'EEXIST') throw new Error(`Refusing to overwrite existing image: ${path}`)
-    throw error
-  })
-  try { await file.writeFile(data) } finally { await file.close() }
-}
-
 function imageGenerationArgs(value: unknown): ImageGenerationArgs {
   if (value === null || typeof value !== 'object') throw new Error('invalid arguments: expected an object')
   const args = value as Record<string, unknown>
@@ -136,8 +108,10 @@ function imageGenerationArgs(value: unknown): ImageGenerationArgs {
   const qualities: readonly unknown[] = ['low', 'medium', 'high']
   if (args.size !== undefined && !sizes.includes(args.size)) throw new Error('invalid arguments: unsupported size')
   if (args.quality !== undefined && !qualities.includes(args.quality)) throw new Error('invalid arguments: unsupported quality')
-  if (args.output_path !== undefined && (typeof args.output_path !== 'string' || args.output_path.length === 0)) {
-    throw new Error('invalid arguments: output_path must be a non-empty string')
+  if (args.output_path !== undefined) {
+    throw new Error(
+      'invalid arguments: output_path is not supported by this DSH version; the generated image is returned as an attachment only',
+    )
   }
   return args as unknown as ImageGenerationArgs
 }
@@ -146,7 +120,7 @@ export function imageToolDefinition(ctx: Context): ToolDefinition {
   return {
     name: 'image_gen',
     description:
-      'Generate a new raster image for a project asset, mockup, illustration, photo, texture, or other bitmap visual. Use this for image creation, not for SVG or other code-native graphics.',
+      'Generate a new raster image for a project asset, mockup, illustration, photo, texture, or other bitmap visual. Returns a conversation attachment, not a workspace file. Use this for image creation, not for SVG or other code-native graphics.',
     parameters: {
       type: 'object',
       required: ['prompt'],
@@ -166,11 +140,6 @@ export function imageToolDefinition(ctx: Context): ToolDefinition {
           enum: ['low', 'medium', 'high'],
           description: 'The rendering quality. Defaults to medium.',
         },
-        output_path: {
-          type: 'string',
-          minLength: 1,
-          description: 'Optional .png path inside the current session workspace. Parent directories are created; existing files are never overwritten.',
-        },
       },
     },
     output: {
@@ -185,7 +154,6 @@ export function imageToolDefinition(ctx: Context): ToolDefinition {
           width: { type: 'integer' },
           height: { type: 'integer' },
           name: { type: 'string' },
-          savedPath: { type: 'string' },
           revisedPrompt: { type: 'string' },
         },
       },
@@ -224,8 +192,6 @@ export function imageToolDefinition(ctx: Context): ToolDefinition {
         : result.format === 'jpeg' ? 'image/jpeg' : 'image/png'
       const extension = result.format === 'jpeg' ? 'jpg' : result.format
       const image = decodeImage(result.data)
-      const savedPath = args.output_path === undefined ? undefined : safeOutputPath(exec, args.output_path)
-      if (savedPath !== undefined) await saveWorkspaceImage(savedPath, image)
       const ref = await ctx.attachments.saveImage({
         data: image,
         mediaType,
@@ -234,7 +200,6 @@ export function imageToolDefinition(ctx: Context): ToolDefinition {
       return {
         ...ref,
         mediaType,
-        ...savedPath === undefined ? {} : { savedPath },
         ...result.revisedPrompt === undefined ? {} : { revisedPrompt: result.revisedPrompt },
       }
     },

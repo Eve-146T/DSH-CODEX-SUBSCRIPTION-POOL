@@ -74,7 +74,7 @@ export function renderModelAwareness(models: readonly LlmModelInfo[]): string {
     '- gpt-5.6 is an alias for gpt-5.6-sol.',
     family,
     '- workflow agent() calls may select a target with provider and model.',
-    '- subagent, subagent_fork, and ralph expose no per-call model argument in this profile; they use their configured or inherited target.',
+    '- Use provider/model parameters only when the current tool schema exposes them; do not infer routing support from a tool name.',
     '- Use the openai-docs skill for current OpenAI model details instead of guessing.',
   ].join('\n')
 }

@@ -1,11 +1,14 @@
 /** Native OpenAI Codex OAuth login for DeepSeek Harness. */
-import { Context, Service } from '@deepseek-ai/cordis'
+import { Context } from '@deepseek-ai/cordis'
+import { Remote, RemoteError, TypertRemoteService, principalOf } from '@deepseek-ai/dsh-typert-protocol'
+import type {} from '@deepseek-ai/dsh-llm'
+import type {} from '@deepseek-ai/dsh-web'
 import z from '@deepseek-ai/schemastery'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { createServer } from 'node:http'
 import { readFile, unlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import WebSocket from 'ws'
@@ -21,7 +24,6 @@ const REDIRECT_URI = 'http://localhost:1455/auth/callback'
 const DEFAULT_FILENAME = 'openai-codex-auth.json'
 const DEFAULT_PREFERENCES_FILENAME = 'openai-codex-preferences.json'
 const TOKEN_REF = credentialRef('DSH_OPENAI_CODEX_TOKEN')
-const CONTROL_PORT = 1456
 const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
 const RESET_CREDITS_URL = 'https://chatgpt.com/backend-api/wham/rate-limit-reset-credits'
 const RESET_CONSUME_URL = `${RESET_CREDITS_URL}/consume`
@@ -30,7 +32,6 @@ const CODEX_WEBSOCKET_BETA = 'responses_websockets=2026-02-06'
 const SEARCH_MODEL = 'gpt-5.4-mini'
 const SEARCH_PROVIDER_ID = 'openai-codex'
 const USAGE_CACHE_MS = 30_000
-const MAX_CONTROL_BODY_BYTES = 4 * 1024
 const MAX_SEARCH_RESPONSE_BYTES = 4 * 1024 * 1024
 
 /** Choice presented by the plugin UI. */
@@ -85,11 +86,6 @@ interface LoginFlow {
 interface WebSearchRequest { query: string; maxResults?: number }
 interface WebSearchSource { url: string; title?: string; snippet?: string; publishedAt?: string }
 interface WebSearchResult { content?: string; sources: WebSearchSource[]; truncated: boolean }
-interface WebSearchProvider {
-  id: string
-  available(): boolean
-  search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult>
-}
 
 export interface DeviceAuthorization {
   userCode: string
@@ -188,20 +184,6 @@ async function readPreferences(filename: string): Promise<PreferencesDocument> {
   }
 }
 
-/** Read one small JSON request without allowing an unbounded loopback payload. */
-async function readControlJson(request: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = []
-  let bytes = 0
-  for await (const raw of request) {
-    const chunk = Buffer.isBuffer(raw) ? raw : Buffer.from(raw)
-    bytes += chunk.byteLength
-    if (bytes > MAX_CONTROL_BODY_BYTES) throw new Error('Request body is too large.')
-    chunks.push(chunk)
-  }
-  if (chunks.length === 0) throw new Error('Request body is missing.')
-  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
-}
-
 async function readCredentialDocument(filename: string): Promise<CredentialDocument | undefined> {
   try {
     return parseCredentialDocument(await readFile(filename, 'utf8'), filename)
@@ -219,7 +201,7 @@ async function tokenRequest(body: URLSearchParams, signal?: AbortSignal): Promis
     ...signal === undefined ? {} : { signal },
   })
   if (!response.ok) {
-    throw new Error(`OpenAI token request failed (HTTP ${response.status}): ${await response.text()}`)
+    throw new Error(`OpenAI token request failed (HTTP ${response.status}). Sign in again if authorization expired.`)
   }
   const value = await response.json() as { access_token?: unknown; refresh_token?: unknown; expires_in?: unknown } | null
   if (value === null || typeof value.access_token !== 'string' || typeof value.refresh_token !== 'string'
@@ -504,28 +486,27 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-function isLocalOrigin(origin: string | undefined): origin is string {
-  if (origin === undefined) return false
-  try {
-    const hostname = new URL(origin).hostname
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
-  } catch { return false }
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface RemoteErrorDetailsMap {
+    'codex/forbidden': Record<string, never>
+    'codex/invalid-request': Record<string, never>
+    'codex/operation-failed': Record<string, never>
+  }
 }
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
     openaiCodexAuth: OpenAICodexAuth
-    web: { registerSearchProvider(provider: WebSearchProvider): () => void }
   }
 }
 
 /** DSH service providing login, logout, and automatically refreshed bearer tokens. */
-export class OpenAICodexAuth extends Service {
+export class OpenAICodexAuth extends TypertRemoteService {
   static Config: z<Config> = z.object({ path: z.string(), preferencesPath: z.string(), dshHome: z.string() })
-  static inject = ['credentials', 'web']
+  static inject = ['credentials', 'web', 'llm']
   private readonly filename: string
   private readonly preferencesFilename: string
-  private readonly csrf = base64Url(randomBytes(24))
+  private publicationFailed = false
   private readonly usageCache = new Map<string, UsageSummary>()
   private readonly usageErrors = new Map<string, string>()
   private loginFlow: LoginFlow | undefined
@@ -537,15 +518,18 @@ export class OpenAICodexAuth extends Service {
     this.filename = resolve(config.path ?? join(dshHome, DEFAULT_FILENAME))
     this.preferencesFilename = resolve(config.preferencesPath ?? join(dshHome, DEFAULT_PREFERENCES_FILENAME))
     ctx.effect(async () => {
-      const token = await this.bearerToken()
-      if (token !== undefined) await ctx.credentials.set(TOKEN_REF, token)
+      await this.bearerToken()
       return () => {}
     })
-    ctx.effect(() => {
-      const timer = setInterval(() => { void this.bearerToken().catch(() => {}) }, 60_000)
-      return () => { clearInterval(timer) }
+    const auth = this
+    ctx.on('llm/stream', async function* (options, next) {
+      if (options.provider === 'openai-codex') {
+        const token = await auth.bearerToken(options.signal)
+        if (token === undefined) throw new Error('Sign in with OpenAI before using Codex.')
+      }
+      yield* next()
     })
-    ctx.effect(() => this.startControlServer())
+    ctx.effect(() => () => { this.loginFlow?.abort.abort() })
     ctx.effect(() => ctx.web.registerSearchProvider({
       id: SEARCH_PROVIDER_ID,
       available: () => true,
@@ -561,17 +545,28 @@ export class OpenAICodexAuth extends Service {
       const selectedAccountId = requestedAccountId ?? document.activeAccountId
       const current = document.accounts.find(account => account.accountId === selectedAccountId)
       if (current === undefined) return undefined
-      if (current.expires > Date.now() + 60_000) return current
-      const next = await tokenRequest(new URLSearchParams({
-        grant_type: 'refresh_token', refresh_token: current.refresh, client_id: CLIENT_ID,
-      }), signal)
+      if (this.publicationFailed) throw new Error('Codex account state is unavailable. Select an account again before retrying.')
+      if (current.expires > Date.now() + 60_000) {
+        if (current.accountId === document.activeAccountId) {
+          try {
+            const stored = await this.ctx.credentials.resolve(TOKEN_REF)
+            if (stored?.value !== current.access) await this.ctx.credentials.set(TOKEN_REF, current.access)
+          } catch (error) {
+            this.publicationFailed = true
+            throw error
+          }
+        }
+        return current
+      }
+      const next = await this.refreshCredential(current, signal)
       const nextDocument: CredentialDocument = {
         ...document,
         activeAccountId: document.activeAccountId === current.accountId ? next.accountId : document.activeAccountId,
         accounts: document.accounts.map(account => account.accountId === current.accountId ? next : account),
       }
-      await this.write(nextDocument)
-      if (nextDocument.activeAccountId === next.accountId) await this.ctx.credentials.set(TOKEN_REF, next.access)
+      // A rotated refresh token must survive a later failure publishing the selected bearer token.
+      try { await this.write(nextDocument) } catch (error) { this.publicationFailed = true; throw error }
+      if (nextDocument.activeAccountId === next.accountId) await this.publish(nextDocument, nextDocument)
       return next
     })
   }
@@ -652,15 +647,13 @@ export class OpenAICodexAuth extends Service {
       const document = await readCredentialDocument(this.filename)
       const accounts = document?.accounts.filter(account => account.accountId !== credential.accountId) ?? []
       accounts.push(credential)
-      await this.write({ version: 2, activeAccountId: credential.accountId, accounts })
+      await this.publish({ version: 2, activeAccountId: credential.accountId, accounts }, document)
     })
-    await this.ctx.credentials.set(TOKEN_REF, credential.access)
     this.usageCache.delete(credential.accountId)
     this.usageErrors.delete(credential.accountId)
   }
 
   private async logout(accountId: string): Promise<void> {
-    let nextActive: OpenAICodexCredential | undefined
     await withFileLock(this.filename, async () => {
       const document = await readCredentialDocument(this.filename)
       if (document === undefined) return
@@ -669,33 +662,33 @@ export class OpenAICodexAuth extends Service {
       }
       const accounts = document.accounts.filter(account => account.accountId !== accountId)
       if (accounts.length === 0) {
-        try { await unlink(this.filename) } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-        }
+        await this.publish(undefined, document)
         return
       }
       const activeAccountId = document.activeAccountId === accountId
         ? accounts[0]!.accountId
         : document.activeAccountId
-      nextActive = accounts.find(account => account.accountId === activeAccountId) ?? accounts[0]
-      await this.write({ version: 2, activeAccountId: nextActive!.accountId, accounts })
+      await this.publish({ version: 2, activeAccountId, accounts }, document)
     })
-    if (nextActive === undefined) await this.ctx.credentials.unset(TOKEN_REF)
-    else await this.ctx.credentials.set(TOKEN_REF, nextActive.access)
     this.usageCache.delete(accountId)
     this.usageErrors.delete(accountId)
   }
 
   private async activate(accountId: string): Promise<void> {
-    const active = await withFileLock(this.filename, async () => {
+    await withFileLock(this.filename, async () => {
       const document = await readCredentialDocument(this.filename)
       const account = document?.accounts.find(candidate => candidate.accountId === accountId)
       if (document === undefined || account === undefined) throw new Error('OpenAI account was not found.')
-      await this.write({ ...document, activeAccountId: accountId })
-      return account
+      const current = account.expires > Date.now() + 60_000 ? account : await this.refreshCredential(account)
+      const refreshed = {
+        ...document,
+        accounts: document.accounts.map(candidate => candidate.accountId === accountId ? current : candidate),
+      }
+      if (current !== account) {
+        try { await this.write(refreshed) } catch (error) { this.publicationFailed = true; throw error }
+      }
+      await this.publish({ ...refreshed, activeAccountId: current.accountId }, refreshed)
     })
-    const current = await this.credential(undefined, accountId) ?? active
-    await this.ctx.credentials.set(TOKEN_REF, current.access)
   }
 
   private beginBrowserLogin(addAnother: boolean): LoginFlow {
@@ -705,7 +698,7 @@ export class OpenAICodexAuth extends Service {
     this.lastLoginError = undefined
     const completion = code
       .then(authorizationCode => this.finishLogin(authorizationCode, verifier, abort.signal))
-      .catch((error: unknown) => { this.lastLoginError = error instanceof Error ? error.message : String(error) })
+      .catch((_error: unknown) => { this.lastLoginError = 'OpenAI sign-in failed. Start sign-in again.' })
       .finally(() => { this.loginFlow = undefined })
     const flow: LoginFlow = { kind: 'browser', url, completion, abort }
     this.loginFlow = flow
@@ -755,7 +748,7 @@ export class OpenAICodexAuth extends Service {
       }
     })()
       .catch((error: unknown) => {
-        if (!abort.signal.aborted) this.lastLoginError = error instanceof Error ? error.message : String(error)
+        if (!abort.signal.aborted) this.lastLoginError = 'OpenAI device sign-in failed. Request a new device code.'
       })
       .finally(() => {
         if (this.loginFlow?.abort === abort) this.loginFlow = undefined
@@ -779,7 +772,7 @@ export class OpenAICodexAuth extends Service {
     if (document === undefined) {
       return {
         loggedIn: false, loginPending: this.loginFlow !== undefined, loginError: this.lastLoginError,
-        serviceTier, csrf: this.csrf,
+        serviceTier, accountStateUnavailable: this.publicationFailed,
       }
     }
     await Promise.all(document.accounts.map(async account => {
@@ -792,24 +785,25 @@ export class OpenAICodexAuth extends Service {
         }
         this.usageErrors.delete(account.accountId)
       } catch (error) {
-        this.usageErrors.set(account.accountId, error instanceof Error ? error.message : String(error))
+        this.usageErrors.set(account.accountId, 'Could not refresh this account or load its quota. Retry or sign in again.')
       }
     }))
     document = await readCredentialDocument(this.filename) ?? document
     return {
       loggedIn: true,
       loginPending: this.loginFlow !== undefined,
-      activeAccountId: document.activeAccountId,
+      loginError: this.lastLoginError,
+      activeAccountId: this.publicationFailed ? undefined : document.activeAccountId,
       accounts: document.accounts.map(account => ({
         ...accountProfile(account.access),
         accountId: account.accountId,
-        active: account.accountId === document!.activeAccountId,
+        active: !this.publicationFailed && account.accountId === document!.activeAccountId,
         expiresAt: account.expires,
         usage: this.usageCache.get(account.accountId),
         usageError: this.usageErrors.get(account.accountId),
       })),
       serviceTier,
-      csrf: this.csrf,
+      accountStateUnavailable: this.publicationFailed,
     }
   }
 
@@ -868,113 +862,82 @@ export class OpenAICodexAuth extends Service {
     return normalizeWebSearchEvents(events)
   }
 
-  private startControlServer(): Promise<() => void> {
-    return new Promise((resolveStart, rejectStart) => {
-      const server = createServer((request, response) => { void this.controlRequest(request, response) })
-      server.once('error', rejectStart)
-      server.listen(CONTROL_PORT, '127.0.0.1', () => {
-        server.removeListener('error', rejectStart)
-        resolveStart(() => {
-          this.loginFlow?.abort.abort()
-          server.close()
-        })
-      })
-    })
-  }
-
-  private async controlRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    const origin = request.headers.origin
-    const localOrigin = isLocalOrigin(origin)
-    const headers: Record<string, string> = {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-      vary: 'Origin',
-      ...localOrigin ? { 'access-control-allow-origin': origin } : {},
+  /** Owner-only account operations over DSH's authenticated Remote transport. No token leaves the host. */
+  @Remote
+  async account(action: unknown, input: unknown): Promise<Record<string, unknown>> {
+    if (principalOf(this.ctx.invocation) !== undefined) {
+      throw new RemoteError('codex/forbidden', 'Only the DSH owner can manage Codex accounts.', {})
     }
-    const send = (status: number, value: unknown): void => {
-      response.writeHead(status, headers).end(JSON.stringify(value))
+    if (typeof action !== 'string' || input === null || typeof input !== 'object' || Array.isArray(input)) {
+      throw new RemoteError('codex/invalid-request', 'Invalid Codex account request.', {})
+    }
+    const row = input as Record<string, unknown>
+    if (!['status', 'models', 'start', 'start-device', 'remove', 'activate', 'redeem', 'service-tier'].includes(action)) {
+      throw new RemoteError('codex/invalid-request', 'Unknown Codex account action.', {})
+    }
+    if (['remove', 'activate', 'redeem'].includes(action)
+      && (typeof row.accountId !== 'string' || row.accountId.length === 0 || row.accountId.length > 256)) {
+      throw new RemoteError('codex/invalid-request', 'Choose a saved Codex account.', {})
     }
     try {
-      const url = new URL(request.url ?? '/', `http://127.0.0.1:${CONTROL_PORT}`)
-      if (request.method === 'OPTIONS' && localOrigin) {
-        response.writeHead(204, {
-          ...headers,
-          'access-control-allow-methods': 'GET, POST, OPTIONS',
-          'access-control-allow-headers': 'content-type, x-dsh-csrf',
-        }).end()
-        return
+      if (action === 'models') return {
+        models: (await this.ctx.llm.listModels('openai-codex')).map(model => ({ id: model.id, name: model.name })),
       }
-      if (url.pathname === '/start' && request.method === 'GET') {
-        const flow = this.beginBrowserLogin(url.searchParams.get('add') === '1')
-        response.writeHead(302, { location: flow.url, 'cache-control': 'no-store' }).end()
-        return
-      }
-      if (url.pathname === '/start-device' && request.method === 'GET') {
-        if (origin !== undefined && !localOrigin) {
-          send(403, { error: 'This endpoint only accepts a local DSH Web origin or a local CLI request.' })
-          return
-        }
+      if (action === 'status') return await this.status(row.refresh === true)
+      if (action === 'start') return { url: this.beginBrowserLogin(row.add === true).url }
+      if (action === 'start-device') {
         const flow = await this.beginDeviceLogin()
-        send(200, { url: flow.url, userCode: flow.userCode })
-        return
+        return { url: flow.url, userCode: flow.userCode }
       }
-      if (!localOrigin) { send(403, { error: 'This endpoint only accepts a local DSH Web origin.' }); return }
-      if (url.pathname === '/status' && request.method === 'GET') {
-        send(200, await this.status(url.searchParams.get('refresh') === '1'))
-        return
+      if (action === 'service-tier') {
+        await this.writePreferences(parseServiceTierSelection(row.selection))
+      } else {
+        const id = row.accountId as string
+        if (action === 'remove') await this.logout(id)
+        else if (action === 'activate') await this.activate(id)
+        else await this.redeemReset(id)
       }
-      if ((url.pathname === '/accounts/remove' || url.pathname === '/accounts/activate' || url.pathname === '/accounts/redeem') && request.method === 'POST') {
-        if (request.headers['x-dsh-csrf'] !== this.csrf) { send(403, { error: 'Invalid CSRF token.' }); return }
-        if (!String(request.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) {
-          send(415, { error: 'Content-Type must be application/json.' })
-          return
-        }
-        let body: unknown
-        try { body = await readControlJson(request) } catch (error) {
-          send(400, { error: error instanceof Error ? error.message : String(error) })
-          return
-        }
-        const accountId = body !== null && typeof body === 'object'
-          ? (body as Record<string, unknown>).accountId
-          : undefined
-        if (typeof accountId !== 'string' || accountId.length === 0) {
-          send(400, { error: 'accountId must be a non-empty string.' })
-          return
-        }
-        if (url.pathname === '/accounts/remove') await this.logout(accountId)
-        else if (url.pathname === '/accounts/activate') await this.activate(accountId)
-        else await this.redeemReset(accountId)
-        send(200, { ok: true })
-        return
-      }
-      if (url.pathname === '/service-tier-preference' && request.method === 'POST') {
-        if (request.headers['x-dsh-csrf'] !== this.csrf) { send(403, { error: 'Invalid CSRF token.' }); return }
-        if (!String(request.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) {
-          send(415, { error: 'Content-Type must be application/json.' })
-          return
-        }
-        let body: unknown
-        try { body = await readControlJson(request) } catch (error) {
-          send(400, { error: error instanceof Error ? error.message : String(error) })
-          return
-        }
-        const row = body !== null && typeof body === 'object' ? body as Record<string, unknown> : {}
-        let selection: ServiceTierSelection
-        try { selection = parseServiceTierSelection(row.selection) } catch (error) {
-          send(400, { error: error instanceof Error ? error.message : String(error) })
-          return
-        }
-        await this.writePreferences(selection)
-        send(200, {
-          selection,
-          requestValue: serviceTierRequestValue(selection),
-          forwardingSupported: false,
-        })
-        return
-      }
-      send(404, { error: 'Not found' })
+      return { ok: true }
     } catch (error) {
-      send(500, { error: error instanceof Error ? error.message : String(error) })
+      // Provider and filesystem errors can carry token or path details; the owner gets a safe action hint.
+      throw new RemoteError('codex/operation-failed', 'Codex account operation failed. Refresh status and retry, or sign in again if the account expired.', {}, { cause: error })
+    }
+  }
+
+  private async refreshCredential(current: OpenAICodexCredential, signal?: AbortSignal): Promise<OpenAICodexCredential> {
+    const next = await tokenRequest(new URLSearchParams({
+      grant_type: 'refresh_token', refresh_token: current.refresh, client_id: CLIENT_ID,
+    }), signal)
+    if (next.accountId !== current.accountId) throw new Error('OpenAI refresh changed the account identity. Sign in again.')
+    return next
+  }
+
+  /** Caller holds the credential-file lock. Failed publication restores both stores or blocks model use. */
+  private async publish(next: CredentialDocument | undefined, previous: CredentialDocument | undefined): Promise<void> {
+    const store = async (document: CredentialDocument | undefined): Promise<void> => {
+      const token = document?.accounts.find(account => account.accountId === document.activeAccountId)?.access
+      if (token === undefined) await this.ctx.credentials.unset(TOKEN_REF)
+      else await this.ctx.credentials.set(TOKEN_REF, token)
+      if (document !== undefined) await this.write(document)
+      else {
+        try { await unlink(this.filename) } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        }
+      }
+    }
+    this.publicationFailed = true
+    try {
+      await store(next)
+      this.publicationFailed = false
+    } catch (error) {
+      try {
+        await store(previous)
+        this.publicationFailed = false
+      } catch (restoreError) {
+        this.ctx.logger.error('Codex account state could not be restored. Model use is blocked; select an account again or restart DSH.')
+        throw new AggregateError([error, restoreError], 'Codex account selection failed and could not be restored.')
+      }
+      throw error
     }
   }
 
