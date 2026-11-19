@@ -189,7 +189,7 @@ window.__ModuleLoader__.load({
       const model = String(value || '').trim().toLowerCase().replace(/[^a-z0-9.]+/g, '-')
       return /(?:^|-)(?:gpt-)?5\.6(?:-|$)/.test(model)
         || /(?:^|-)(?:gpt-)?5\.3(?:-codex)?-spark(?:-|$)/.test(model)
-        || /(?:^|-)(?:gpt-)?6(?:-|$)/.test(model)
+        || /(?:^|-)(?:gpt-)?6(?:\.\d+)?(?:-|$)/.test(model)
         || /(?:^|-)astra(?:-|$)/.test(model)
     }
 
