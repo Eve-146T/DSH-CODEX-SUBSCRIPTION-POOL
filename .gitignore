@@ -1,10 +1,12 @@
 node_modules/
 dist/
 coverage/
+.pack-check/
 *.tgz
 .env
 .env.*
 openai-codex-auth.json
+openai-codex-preferences.json
 
 lib/*
 !lib/index.js

@@ -1,5 +1,6 @@
 /** Native OpenAI Codex OAuth login for DeepSeek Harness. */
-import { Context, Service } from '@deepseek-ai/cordis';
+import { Context } from '@deepseek-ai/cordis';
+import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import z from '@deepseek-ai/schemastery';
 /** Choice presented by the plugin UI. */
 export type ServiceTierSelection = 'normal' | 'priority';
@@ -37,10 +38,6 @@ interface UsageSummary {
     resetCredits?: number;
     fetchedAt: number;
 }
-interface WebSearchRequest {
-    query: string;
-    maxResults?: number;
-}
 interface WebSearchSource {
     url: string;
     title?: string;
@@ -51,11 +48,6 @@ interface WebSearchResult {
     content?: string;
     sources: WebSearchSource[];
     truncated: boolean;
-}
-interface WebSearchProvider {
-    id: string;
-    available(): boolean;
-    search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult>;
 }
 export interface DeviceAuthorization {
     userCode: string;
@@ -81,21 +73,25 @@ export declare function normalizeWebSearchEvents(events: readonly unknown[]): We
 export declare function codexWebSocketUrl(endpoint?: string): string;
 /** Decode a single JSON event sent by the Codex Responses WebSocket. */
 export declare function parseCodexWebSocketEvent(value: Buffer | ArrayBuffer | Buffer[]): unknown | undefined;
+declare module '@deepseek-ai/dsh-typert-protocol' {
+    interface RemoteErrorDetailsMap {
+        'codex/forbidden': Record<string, never>;
+        'codex/invalid-request': Record<string, never>;
+        'codex/operation-failed': Record<string, never>;
+    }
+}
 declare module '@deepseek-ai/cordis' {
     interface Context {
         openaiCodexAuth: OpenAICodexAuth;
-        web: {
-            registerSearchProvider(provider: WebSearchProvider): () => void;
-        };
     }
 }
 /** DSH service providing login, logout, and automatically refreshed bearer tokens. */
-export declare class OpenAICodexAuth extends Service {
+export declare class OpenAICodexAuth extends TypertRemoteService {
     static Config: z<Config>;
     static inject: string[];
     private readonly filename;
     private readonly preferencesFilename;
-    private readonly csrf;
+    private publicationFailed;
     private readonly usageCache;
     private readonly usageErrors;
     private loginFlow;
@@ -118,8 +114,11 @@ export declare class OpenAICodexAuth extends Service {
     private fetchUsage;
     private redeemReset;
     private searchWeb;
-    private startControlServer;
-    private controlRequest;
+    /** Owner-only account operations over DSH's authenticated Remote transport. No token leaves the host. */
+    account(action: unknown, input: unknown): Promise<Record<string, unknown>>;
+    private refreshCredential;
+    /** Caller holds the credential-file lock. Failed publication restores both stores or blocks model use. */
+    private publish;
     private write;
     private writePreferences;
     private waitForCallback;

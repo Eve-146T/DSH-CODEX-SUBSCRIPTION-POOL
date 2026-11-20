@@ -22,7 +22,8 @@ describe('model awareness', () => {
     expect(text).toContain('gpt-5.6-terra: balanced intelligence and cost')
     expect(text).toContain('gpt-5.6-luna: efficient')
     expect(text).toContain('workflow agent() calls may select a target')
-    expect(text).toContain('subagent, subagent_fork, and ralph expose no per-call model argument')
+    expect(text).toContain('Use provider/model parameters only when the current tool schema exposes them')
+    expect(text).not.toContain('expose no per-call model argument')
     expect(text).toContain('openai-docs skill')
   })
 

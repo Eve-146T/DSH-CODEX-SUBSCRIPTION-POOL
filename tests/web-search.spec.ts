@@ -3,7 +3,7 @@ import {
   codexWebSocketUrl,
   normalizeWebSearchEvents,
   parseCodexWebSocketEvent,
-} from '../src/index.ts'
+} from '../lib/index.js'
 
 describe('normalizeWebSearchEvents', () => {
   it('uses the authenticated Responses endpoint over WebSocket', () => {

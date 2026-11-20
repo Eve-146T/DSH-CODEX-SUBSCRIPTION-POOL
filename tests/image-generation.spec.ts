@@ -29,13 +29,18 @@ describe('image generation protocol', () => {
     })
   })
 
-  it('gives the model task-oriented generation and workspace-save guidance', () => {
+  it('gives the model task-oriented generation guidance without filesystem writes', () => {
     const source = readFileSync(fileURLToPath(new URL('../src/image-tool.ts', import.meta.url)), 'utf8')
     expect(source).toContain('Generate a new raster image for a project asset')
-    expect(source).toContain("output_path: {")
-    expect(source).toContain('inside the current session workspace')
-    expect(source).toContain("open(path, 'wx', 0o644)")
     expect(source).not.toContain('through the signed-in ChatGPT/Codex subscription')
+    // Image results are immutable attachments: no workspace path is written and
+    // no direct filesystem or session-header access survives.
+    expect(source).not.toContain('node:fs')
+    expect(source).not.toContain('node:path')
+    expect(source).not.toContain('session.header')
+    expect(source).not.toContain('savedPath')
+    expect(source).not.toContain('"output_path"')
+    expect(source).not.toContain('output_path: {')
   })
 
   it('reads completed image calls from both Responses event shapes', () => {
@@ -76,7 +81,11 @@ describe('image generation protocol', () => {
     expect(pkg.exports).toHaveProperty('./image-tool')
     expect(patch).toContain('name: dsh-openai-codex-auth/image-tool')
     expect(client).toContain("key: 'image_gen'")
-    expect(client).toContain('ctx.conversation.resolveImage')
+    // The current public renderer seam is the `tool.call.toolview` slot, whose
+    // `inject(sessionId)` supplies `resolveImage`; `ctx.conversation.resolveImage`
+    // does not exist in DSH 0.2.2-rc.3.
+    expect(client).toContain("name: 'tool.call.toolview'")
+    expect(client).toContain('resolveImage:')
     expect(client).toContain('function SparkleIcon()')
     expect(client).toContain("usePreference('showGeneratedImages', true)")
     expect(client).toContain('if (!showGeneratedImages) return null')
