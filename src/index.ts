@@ -472,6 +472,11 @@ async function readWebSocketEvents(
   })
 }
 
+function isExpiredGrant(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /token has expired|authentication token has expired|expired/i.test(message)
+}
+
 function delay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolveDelay, rejectDelay) => {
     if (signal.aborted) { rejectDelay(signal.reason ?? new Error('OpenAI login cancelled')); return }
@@ -525,11 +530,29 @@ export class OpenAICodexAuth extends TypertRemoteService {
     })
     const auth = this
     ctx.on('llm/stream', async function* (options, next) {
-      if (options.provider === 'openai-codex') {
-        const token = await auth.bearerToken(options.signal)
-        if (token === undefined) throw new Error('Sign in with OpenAI before using Codex.')
+      if (options.provider !== 'openai-codex') {
+        yield* next()
+        return
       }
-      yield* next()
+      const token = await auth.bearerToken(options.signal)
+      if (token === undefined) throw new Error('Sign in with OpenAI before using Codex.')
+      let emitted = false
+      let refreshed = false
+      for (;;) {
+        try {
+          for await (const chunk of next()) {
+            emitted = true
+            yield chunk
+          }
+          return
+        } catch (error) {
+          // OpenAI can reject a grant long before the expiry it reported when issuing it.
+          // Retrying is safe only while nothing reached the caller, so a replay cannot duplicate output.
+          if (emitted || refreshed || options.signal?.aborted === true || !isExpiredGrant(error)) throw error
+          refreshed = true
+          await auth.refreshActiveAccount(options.signal)
+        }
+      }
     })
     ctx.effect(() => () => { this.loginFlow?.abort.abort() })
     ctx.effect(() => ctx.web.registerSearchProvider({
@@ -690,6 +713,23 @@ export class OpenAICodexAuth extends TypertRemoteService {
         try { await this.write(refreshed) } catch (error) { this.publicationFailed = true; throw error }
       }
       await this.publish({ ...refreshed, activeAccountId: current.accountId }, refreshed)
+    })
+  }
+
+  /** Refresh the selected account even though its stored expiry has not passed. */
+  private async refreshActiveAccount(signal?: AbortSignal): Promise<void> {
+    await withFileLock(this.filename, async () => {
+      const document = await readCredentialDocument(this.filename)
+      if (document === undefined) return
+      const current = document.accounts.find(account => account.accountId === document.activeAccountId)
+      if (current === undefined) return
+      const next = await this.refreshCredential(current, signal)
+      const refreshed: CredentialDocument = {
+        ...document,
+        accounts: document.accounts.map(account => account.accountId === current.accountId ? next : account),
+      }
+      try { await this.write(refreshed) } catch (error) { this.publicationFailed = true; throw error }
+      await this.publish(refreshed, refreshed)
     })
   }
 
