@@ -21,6 +21,8 @@ const DEVICE_TOKEN_URL = 'https://auth.openai.com/api/accounts/deviceauth/token'
 const DEVICE_AUTH_URL = 'https://auth.openai.com/codex/device'
 const DEVICE_REDIRECT_URI = 'https://auth.openai.com/deviceauth/callback'
 const REDIRECT_URI = 'http://localhost:1455/auth/callback'
+/** A closed OAuth window sends no callback, so a browser sign-in must stop waiting on its own. */
+const BROWSER_LOGIN_TIMEOUT_MS = 10 * 60 * 1000
 const DEFAULT_FILENAME = 'openai-codex-auth.json'
 const DEFAULT_PREFERENCES_FILENAME = 'openai-codex-preferences.json'
 const TOKEN_REF = credentialRef('DSH_OPENAI_CODEX_TOKEN')
@@ -698,8 +700,13 @@ export class OpenAICodexAuth extends TypertRemoteService {
     this.lastLoginError = undefined
     const completion = code
       .then(authorizationCode => this.finishLogin(authorizationCode, verifier, abort.signal))
-      .catch((_error: unknown) => { this.lastLoginError = 'OpenAI sign-in failed. Start sign-in again.' })
-      .finally(() => { this.loginFlow = undefined })
+      .catch((_error: unknown) => {
+        // A cancelled flow is an owner action, not a failure worth showing on the card.
+        if (!abort.signal.aborted) this.lastLoginError = 'OpenAI sign-in failed. Start sign-in again.'
+      })
+      .finally(() => {
+        if (this.loginFlow?.abort === abort) this.loginFlow = undefined
+      })
     const flow: LoginFlow = { kind: 'browser', url, completion, abort }
     this.loginFlow = flow
     return flow
@@ -872,7 +879,7 @@ export class OpenAICodexAuth extends TypertRemoteService {
       throw new RemoteError('codex/invalid-request', 'Invalid Codex account request.', {})
     }
     const row = input as Record<string, unknown>
-    if (!['status', 'models', 'start', 'start-device', 'remove', 'activate', 'redeem', 'service-tier'].includes(action)) {
+    if (!['status', 'models', 'start', 'start-device', 'cancel-login', 'remove', 'activate', 'redeem', 'service-tier'].includes(action)) {
       throw new RemoteError('codex/invalid-request', 'Unknown Codex account action.', {})
     }
     if (['remove', 'activate', 'redeem'].includes(action)
@@ -885,6 +892,17 @@ export class OpenAICodexAuth extends TypertRemoteService {
       }
       if (action === 'status') return await this.status(row.refresh === true)
       if (action === 'start') return { url: this.beginBrowserLogin(row.add === true).url }
+      if (action === 'cancel-login') {
+        // The owner closed the OAuth window; abort whatever sign-in is pending so the card stops waiting.
+        const flow = this.loginFlow
+        if (flow !== undefined) {
+          flow.abort.abort()
+          await flow.completion
+          if (this.loginFlow === flow) this.loginFlow = undefined
+        }
+        this.lastLoginError = undefined
+        return { ok: true }
+      }
       if (action === 'start-device') {
         const flow = await this.beginDeviceLogin()
         return { url: flow.url, userCode: flow.userCode }
@@ -967,12 +985,22 @@ export class OpenAICodexAuth extends TypertRemoteService {
         response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end('OpenAI login complete. You may close this window.')
         settled = true
         signal.removeEventListener('abort', abort)
+        clearTimeout(timer)
         server.close()
         resolve(code)
       })
+      // A closed OAuth window sends no callback; stop waiting instead of blocking sign-in forever.
+      const timer = setTimeout(() => {
+        if (settled) return
+        settled = true
+        signal.removeEventListener('abort', abort)
+        server.close()
+        reject(new Error('OpenAI login timed out. Start sign-in again.'))
+      }, BROWSER_LOGIN_TIMEOUT_MS)
       const abort = (): void => {
         if (settled) return
         settled = true
+        clearTimeout(timer)
         server.close()
         reject(new Error('OpenAI login cancelled'))
       }
@@ -980,6 +1008,7 @@ export class OpenAICodexAuth extends TypertRemoteService {
       server.listen(1455, '127.0.0.1').on('error', (error) => {
         if (settled) return
         settled = true
+        clearTimeout(timer)
         signal.removeEventListener('abort', abort)
         reject(error)
       })

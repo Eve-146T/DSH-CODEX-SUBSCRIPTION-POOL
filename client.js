@@ -47,6 +47,7 @@ window.__ModuleLoader__.load({
       catalogFailed: 'Could not load the available models.',
       loading: 'Loading',
       waitingAuthorization: 'Waiting for authorization…',
+      cancelWaiting: 'Cancel',
       addAccount: 'Add another account',
       waitingSignin: 'Waiting for sign-in',
       notConnected: 'Not connected',
@@ -95,6 +96,7 @@ window.__ModuleLoader__.load({
       catalogFailed: '无法加载可用模型。',
       loading: '加载中',
       waitingAuthorization: '等待授权…',
+      cancelWaiting: '取消',
       addAccount: '添加其他账户',
       waitingSignin: '等待登录',
       notConnected: '未连接',
@@ -505,6 +507,7 @@ window.__ModuleLoader__.load({
       const [showImages, setShowImages] = usePreference('showGeneratedImages', true)
       const expectedAccountCount = useRef(0)
       const sawLoginPending = useRef(false)
+      const popupRef = useRef(null)
 
       useEffect(() => { setModelFilter(hideModels) }, [hideModels])
 
@@ -533,9 +536,29 @@ window.__ModuleLoader__.load({
         return () => { window.clearInterval(timer) }
       }, [load, watchLogin])
 
+      const cancelLogin = async () => {
+        setBusy(true)
+        try {
+          if (popupRef.current !== null) {
+            try { popupRef.current.close() } catch { /* the window may already be gone */ }
+            popupRef.current = null
+          }
+          await accountRequest('cancel-login')
+          expectedAccountCount.current = 0
+          sawLoginPending.current = false
+          setWatchLogin(false)
+          setDevice(null)
+          cachedStatus = null
+          await load(true)
+          setError('')
+        } catch (cancelError) { setError(messageOf(cancelError)) }
+        finally { setBusy(false) }
+      }
+
       const login = async (addAnother) => {
         const popup = window.open('about:blank', 'dsh-openai-codex-login', 'popup,width=560,height=760')
         if (popup === null) { setError(t('popupBlocked')); return }
+        popupRef.current = popup
         setBusy(true)
         try {
           setDevice(null)
@@ -593,7 +616,10 @@ window.__ModuleLoader__.load({
           : connected
             ? h(React.Fragment, null,
                 h('div', { className: 'codexAccounts' }, accounts.map((account) => h(AccountGroup, { key: account.accountId, account, busy, activate, logout, redeem, emailPrivacy, t }))),
-                h('div', { className: 'codexAddRow' }, h(Button, { className: 'codexAddAccount', variant: 'outline', size: 'md', disabled: busy || pending, onClick: () => login(true) }, pending ? t('waitingAuthorization') : t('addAccount'))),
+                h('div', { className: 'codexAddRow' },
+                  h(Button, { className: 'codexAddAccount', variant: 'outline', size: 'md', disabled: busy || pending, onClick: () => login(true) }, pending ? t('waitingAuthorization') : t('addAccount')),
+                  pending ? h(Button, { variant: 'ghost', size: 'md', disabled: busy, onClick: () => { void cancelLogin() } }, t('cancelWaiting')) : null,
+                ),
                 h('div', { className: 'codexPreferences' },
                   h('h3', { className: 'codexPreferencesTitle' }, t('settings')),
                   h(PreferenceToggle, { t, label: t('hideModels'), value: hideModels, onChange: setHideModels }),
@@ -612,6 +638,7 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'codexSignInActions' },
                   h(Button, { variant: 'primary', disabled: busy || pending, onClick: () => login(false) }, pending && !device ? t('waitingAuthorization') : t('signIn')),
                   h(Button, { className: 'codexDeviceButton', variant: 'outline', disabled: busy || pending, onClick: () => { void deviceLogin() } }, t('deviceCode')),
+                  pending && !device ? h(Button, { variant: 'ghost', disabled: busy, onClick: () => { void cancelLogin() } }, t('cancelWaiting')) : null,
                 ),
                 device
                   ? h('div', { className: 'codexDevice' },

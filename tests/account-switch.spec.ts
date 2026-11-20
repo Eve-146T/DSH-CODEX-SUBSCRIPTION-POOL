@@ -254,6 +254,20 @@ describe('manual account selection through the shipped adapter', () => {
     expect((await f.read()).activeAccountId).toBe('B')
   })
 
+  it('clears a pending browser sign-in when the owner cancels it', async () => {
+    const f = await fixture()
+    const started = await f.auth.account('start', { add: true })
+    expect(typeof started.url).toBe('string')
+    // Whether the loopback listener bound in this sandbox or not, cancelling must clear every wait state.
+    expect(await f.auth.account('cancel-login', {})).toEqual({ ok: true })
+    const status = await f.auth.account('status', {})
+    expect(status.loginPending).toBe(false)
+    expect(status.loginError).toBeUndefined()
+    // Cancelling twice is harmless: the card can retry without a stuck state.
+    expect(await f.auth.account('cancel-login', {})).toEqual({ ok: true })
+    expect((await f.auth.account('status', {})).loginPending).toBe(false)
+  })
+
   it('denies non-owner Remote callers before reading or changing accounts', async () => {
     const f = await fixture()
     const caller = f.ctx.extend({ invocation: { peer: { principal: { kind: 'api-client', id: 'untrusted' } } } })
